@@ -35,30 +35,27 @@ export default function Component() {
   const [modalOpen, setModalOpen] = useState(false); 
 
   const [totalDiscountItemPrice, setTotalDiscountItemPrice] = useState(0);
-  const [fullTotalPrice, setFullTotalPrice] = useState(0);
+  const [subtotalPrice, setSubtotalPrice] = useState(0);
   const [totalPriceAfterDiscount, setTotalPriceAfterDiscount] = useState(0);
   
   useEffect(() => {
-    // คำนวณยอดรวมเต็มราคาสินค้า
     const total = selectedProducts.reduce((total, product) => {
-      const priceAfterDiscount = product.price - (product.discount || 0);
-      return total + (priceAfterDiscount * product.quantity);
+      const priceAfterDiscount = product.price - (product.discount || 0); // หักส่วนลด
+      return total + (priceAfterDiscount * product.quantity); // คูณด้วยจำนวนเพื่อหายอดรวม
     }, 0);
+    
+    setSubtotalPrice(total);
   
-    setFullTotalPrice(total);
-  
-    // คำนวณยอดรวมส่วนลด
+    // คำนวณยอดรวมราคาสินค้า หลังหักส่วนลด
     const totalDiscount = selectedProducts.reduce((total, product) => {
       return total + (product.discount || 0) * product.quantity; // รวมส่วนลดที่ใช้
     }, 0);
   
     setTotalDiscountItemPrice(totalDiscount); // อัปเดตยอดรวมส่วนลด
   
-    // คำนวณยอดรวมสุดท้ายหลังหักส่วนลด
-    const finalTotal = total - totalDiscount; 
+    const finalTotal = total - totalDiscount; // ยอดรวมสุดท้ายหลังหักส่วนลด
     setTotalPriceAfterDiscount(finalTotal); // อัปเดตยอดรวมสุดท้าย
-  }, [selectedProducts]); // อัปเดตเมื่อ selectedProducts เปลี่ยนแปลง
-  
+  }, [selectedProducts]); // อัปเดตเมื่อ selectedProducts เปลี่ยนแปล
 
 
   useEffect(() => {
@@ -592,6 +589,7 @@ const handleItemDiscountClick = (productName) => {
     html: `
       <label style="display: block;">เลือกประเภทส่วนลด</label>
       <select id="discountType" class="block w-full p-2 border rounded mb-2 bg-white text-black">
+        <option value="percentage">เปอร์เซ็นต์ (%)</option>
         <option value="amount">จำนวนเงิน (฿)</option>
       </select>
       <input type="text" id="discountValue" placeholder="กรุณากรอกจำนวนส่วนลด" class="block w-full p-2 border rounded bg-white text-black" />
@@ -708,7 +706,7 @@ return (
 
   
   <main className={`flex flex-1 p-4 ${darkMode ? 'bg-gray-900' : 'bg-gray-200'} md:p-3`}>
-  <div className={`flex flex-col w-full md:w-1/3 h-[calc(100vh-90px)] p-4 ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white bg-opacity-50 text-gray-900'} border rounded-md`}>
+  <div className={`flex flex-col w-full max-w-[700px] h-[calc(100vh-90px)] p-4 ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white bg-opacity-50 text-gray-900'} border rounded-md`}>
   <div className="flex flex-wrap items-center mb-4 space-x-2">
       <select className={`select select-bordered ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-100 text-black'} flex-1`} defaultValue="">
         <option value="" disabled>ลูกค้าภายในร้าน</option>
@@ -794,7 +792,7 @@ return (
       <div className={`border-t pt-4 mt-4 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
         <div className="flex justify-between mb-6">
           <span>ยอดรวมสินค้า</span>
-          <span>{fullTotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมราคาสินค้า */}
+          <span>{subtotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมราคาสินค้า */}
           </div>
         <div className="flex justify-between mb-6">
           <span>ส่วนลด</span>
@@ -821,28 +819,22 @@ return (
           <span>ภาษี (7%)</span>
           <span>{vatAmount.toFixed(2)} บาท</span>
         </div> */}
-<div className="flex justify-between font-bold text-lg mb-8 border-b pb-4">
-  <span>ยอดรวมทั้งหมด</span>
-  <span className="text-orange-500 text-xl">{fullTotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมหลังหักส่วนลด */}
+<div className="flex justify-between font-bold text-lg mb-10 border-b pb-4">
+  <span>ยอดรวมทั้งหมด ({numberToThaiText(subtotalPrice)})</span>
+  <span className="text-orange-500 text-xl">{subtotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมหลังหักส่วนลด */}
   
 </div>
 
 
 
-
-<div className="flex justify-end">
-
-  <button 
-    onClick={handlePaymentClick} 
-    className={`py-3 px-6 rounded-lg shadow-lg focus:outline-none transition-colors duration-300 ${darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'} 
-    ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
-    disabled={selectedProducts.length === 0} 
-  >
-    Pay
-  </button>
-  
-</div>
-
+        <button 
+          onClick={handlePaymentClick} 
+          className={`py-3 px-6 rounded-lg shadow-lg focus:outline-none transition-colors duration-300 ${darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'} 
+          ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
+          disabled={selectedProducts.length === 0} 
+        >
+          ชำระเงิน
+        </button>
 
         
 
@@ -865,23 +857,6 @@ return (
           selectedProducts={selectedProducts} 
         /> */}
 
-<PaymentModal 
-  amount={amount} 
-  setAmount={setAmount} 
-  handleNumberClick={handleNumberClick} 
-  handleClear={handleClear} 
-  handleQuickAmount={handleQuickAmount} 
-  isModalOpen={isModalOpen} 
-  closeModal={closeModal} 
-  totalWithVAT={totalWithVAT}
-  fullTotalPrice={fullTotalPrice} // ส่งยอดรวมราคาสินค้า
-  totalDiscountItemPrice={totalDiscountItemPrice} // ส่งยอดรวมส่วนลด
-  selectedProducts={selectedProducts}
-  storeId={storeId} 
-  storeName= {storeName}
-/>
-
-
 
   </div>
 </div>
@@ -890,53 +865,31 @@ return (
 </div>
 
       <div className={`flex flex-col flex-1 p-4 mt md:ml-3 h-[calc(100vh-90px)] ${darkMode ? 'bg-gray-700' : 'bg-white'} bg-opacity-50 border rounded-md`}>
-      <label className={`input input-bordered flex items-center gap-2 transition-all duration-300 ease-in-out ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-100 text-black'} mb-4`}>
-  <input 
-    type="text" 
-    placeholder="ค้นหาสินค้า..." 
-    className="grow bg-transparent border-none outline-none transition-all duration-300 ease-in-out placeholder-opacity-50 focus:placeholder-opacity-0  " 
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-  />
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 16 16"
-    fill="currentColor"
-    className="h-4 w-4 opacity-70 transition-opacity duration-300 ease-in-out">
-    <path
-      fillRule="evenodd"
-      d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
-      clipRule="evenodd" />
-  </svg>
-</label>
+      <input 
+  type="text" 
+  placeholder="ค้นหาสินค้า..." 
+  className={`input input-bordered ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-100 text-black'} mb-4`} 
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+/>
 
-
-
-
-<ul className="menu bg-white lg:menu-horizontal rounded-box shadow-md p-2 transition-all duration-300 ease-in-out"> 
-  <li>
-    <a 
-      onClick={() => setSelectedCategory(null)} 
-      className={`${selectedCategory === null ? 'bg-blue-100 font-bold' : ''}`} // ใช้คลาสเพื่อแสดง active state
-    >
-      ทั้งหมด
-    </a>
-  </li>
+<div className="btn-group mb-4 flex flex-wrap space-x-2">
+  <button
+    className={`btn ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-300 text-black'} mb-2 transition-transform duration-300 ease-in-out transform hover:scale-105 hover:bg-gray-500 hover:text-white`}
+    onClick={() => setSelectedCategory(null)}
+  >
+    ทั้งหมด
+  </button>
   {categories.map((category) => (
-    <li key={category.id}>
-      <a 
-        onClick={() => setSelectedCategory(category.id)} 
-        className={` ${selectedCategory === category.id ? 'bg-blue-100 font-bold' : ''}`} // ใช้คลาสเพื่อแสดง active state
-      >
-        {category.name}
-      </a>
-    </li>
+    <button
+      key={category.id}
+      className={`btn ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-300 text-black'} mb-2 transition-transform duration-300 ease-in-out transform hover:scale-105 hover:bg-gray-500 hover:text-white`}
+      onClick={() => setSelectedCategory(category.id)}
+    >
+      {category.name}
+    </button>
   ))}
-</ul>
-
-
-
-
+</div>
 
 
 
@@ -944,7 +897,7 @@ return (
 
       {/* Product Grid */}
       <div className="flex-grow overflow-y-auto max-h-[calc(100vh-200px)]">
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2"> {/* ลด gap ลง */}
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
     {loading ? (
       <div className="col-span-full flex justify-center items-center h-32">
         <Loading />
@@ -956,16 +909,16 @@ return (
             key={product.id} 
             className="card bg-white shadow-md hover:shadow-lg transition-shadow flex flex-col cursor-pointer"
             onClick={() => handleQuantityProductClick(product)} 
-            style={{ maxWidth: '100%', minWidth: '0', flexGrow: 1 }} // ปรับขนาดให้ยืดหยุ่น
+            style={{ maxWidth: '270px' }} 
           >
-            <figure className="relative w-full h-32 overflow-hidden">
-              <img
-                src={product.img || 'default-image-url'}
-                alt={product.product_name || 'Product Image'}
-                className="w-full h-full object-contain"
-                style={{ aspectRatio: '1 / 1' }}
-              />
-            </figure>
+<figure className="relative w-full h-32 overflow-hidden">
+  <img
+    src={product.img || 'default-image-url'}
+    alt={product.product_name || 'Product Image'}
+    className="w-full h-full object-contain" // เปลี่ยนจาก object-cover เป็น object-contain
+    style={{ aspectRatio: '1 / 1' }}
+  />
+</figure>
 
             <div className="card-body text-black flex flex-col p-2 flex-grow">
               <h2 className="card-title text-xs sm:text-sm font-semibold">{product.product_name || 'Product Name'}</h2>
@@ -976,7 +929,7 @@ return (
         ))}
         <div 
           className="card bg-white shadow-md hover:shadow-lg transition-shadow flex flex-col cursor-pointer items-center justify-center opacity-50 hover:opacity-80"
-          style={{ maxWidth: '100%', minWidth: '0', flexGrow: 1 }} // ปรับขนาดให้ยืดหยุ่น
+          style={{ maxWidth: '270px' }}
         >
           <div className="w-full h-32 flex items-center justify-center"> 
             <span className="text-3xl text-gray-500">+</span> 
@@ -993,7 +946,7 @@ return (
         </div>
         <div 
           className="card bg-white shadow-md hover:shadow-lg transition-shadow flex flex-col cursor-pointer items-center justify-center opacity-50 hover:opacity-80"
-          style={{ maxWidth: '100%', minWidth: '0', flexGrow: 1 }} // ปรับขนาดให้ยืดหยุ่น
+          style={{ maxWidth: '270px' }}
         >
           <div className="w-full h-32 flex items-center justify-center"> 
             <span className="text-3xl text-gray-500">+</span> 
@@ -1005,8 +958,6 @@ return (
       </>
     )}
   </div>
-
-
   {isQuantityModalOpen && (
         <QuantityModal
           quantity={quantity}

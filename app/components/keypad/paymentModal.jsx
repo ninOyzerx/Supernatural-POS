@@ -1,4 +1,4 @@
-import { CreditCard, X ,Printer } from 'lucide-react';
+import { CreditCard, X, Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,21 +11,94 @@ export default function PaymentModal({
   handleQuickAmount, 
   isModalOpen, 
   closeModal,
-  totalWithVAT,
-  totalPrice,
-  selectedProducts // Receive selected products
+  fullTotalPrice, 
+  selectedProducts,
+  storeId, 
+  storeName 
 }) {
   const [showModal, setShowModal] = useState(isModalOpen);
   const [isClosing, setIsClosing] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false); 
-  const [change, setChange] = useState(0); 
-  const [date] = useState(new Date().toLocaleString()); 
-  const [subtotal, setSubtotal] = useState(totalWithVAT); 
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [change, setChange] = useState(0);
+  const [date] = useState(new Date().toLocaleString());
   const [paymentMethod] = useState('เงินสด');
-  
-  const [paymentData, setPaymentData] = useState(null); 
+  const [paymentData, setPaymentData] = useState(null);
 
-  const calculatedTotalPrice = totalPrice; 
+  const calculatedTotalPrice = fullTotalPrice;
+
+
+
+  function numberToThaiText(num) {
+    const units = ["", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "สิบ"];
+    const teens = ["สิบ", "สิบเอ็ด", "สิบสอง", "สิบสาม", "สิบสี่", "สิบห้า", "สิบหก", "สิบเจ็ด", "สิบแปด", "สิบเก้า"];
+    const tens = ["", "สิบ", "ยี่สิบ", "สามสิบ", "สี่สิบ", "ห้าสิบ", "หกสิบ", "เจ็ดสิบ", "แปดสิบ", "เก้าสิบ"];
+    const thousands = ["", "หนึ่งพัน", "สองพัน", "สามพัน", "สี่พัน", "ห้าพัน", "หกพัน", "เจ็ดพัน", "แปดพัน", "เก้าพัน"];
+    const tenThousands = ["", "หนึ่งหมื่น", "สองหมื่น", "สามหมื่น", "สี่หมื่น", "ห้าหมื่น", "หกหมื่น", "เจ็ดหมื่น", "แปดหมื่น", "เก้าหมื่น"];
+    const hundredThousands = ["", "หนึ่งแสน", "สองแสน", "สามแสน", "สี่แสน", "ห้าหมื่น", "หกแสน", "เจ็ดแสน", "แปดแสน", "เก้าแสน"];
+  
+    if (num === 0) return "ศูนย์บาท";
+  
+    let words = "";
+    let baht = Math.floor(num);
+    let satang = Math.round((num - baht) * 100);
+  
+    if (baht >= 100000) {
+      const hundredThousandPart = Math.floor(baht / 100000);
+      words += hundredThousands[hundredThousandPart]; // ไม่มีช่องว่าง
+      baht %= 100000;
+    }
+  
+    if (baht >= 10000) {
+      const tenThousandPart = Math.floor(baht / 10000);
+      words += tenThousands[tenThousandPart]; // ไม่มีช่องว่าง
+      baht %= 10000;
+    }
+  
+    if (baht >= 1000) {
+      const thousandPart = Math.floor(baht / 1000);
+      words += thousands[thousandPart]; // ไม่มีช่องว่าง
+      baht %= 1000;
+    }
+  
+    if (baht >= 100) {
+      const hundredPart = Math.floor(baht / 100);
+      words += units[hundredPart] + "ร้อย"; // ไม่มีช่องว่าง
+      baht %= 100;
+    }
+  
+    if (baht >= 20) {
+      const tenPart = Math.floor(baht / 10);
+      words += tens[tenPart]; // ไม่มีช่องว่าง
+      baht %= 10;
+    } else if (baht >= 11) {
+      words += teens[baht - 10]; // ไม่มีช่องว่าง
+      return words + "บาทถ้วน"; // ตัดคำนี้ออก
+    } else if (baht === 10) {
+      words += "สิบ"; // ไม่มีช่องว่าง
+      return words + "บาทถ้วน"; // ตัดคำนี้ออก
+    }
+  
+    if (baht > 0) {
+      words += units[baht]; // ไม่มีช่องว่าง
+    }
+  
+    words += "บาท"; // ไม่มีช่องว่าง
+  
+    if (satang > 0) {
+      if (satang < 10) {
+        words += `${units[satang]} สตางค์`;
+      } else {
+        const tenPart = Math.floor(satang / 10);
+        const unitPart = satang % 10;
+        words += ` ${tens[tenPart]}${unitPart > 0 ? ' ' + units[unitPart] : ''} สตางค์`;
+      }
+    } else {
+      words += "ถ้วน"; // ไม่มีช่องว่าง
+    }
+  
+    return words.trim();
+  }
+  
 
   useEffect(() => {
     if (isModalOpen) {
@@ -38,7 +111,7 @@ export default function PaymentModal({
   }, [isModalOpen]);
 
   const handleFullPayment = () => {
-    setAmount(totalWithVAT.toFixed(2));
+    setAmount(fullTotalPrice.toFixed(2));
   };
 
   const formatTransactionId = (uuid) => {
@@ -63,7 +136,7 @@ export default function PaymentModal({
     }
 
     // Calculate change
-    const calculatedChange = parsedAmount - totalWithVAT;
+    const calculatedChange = parsedAmount - fullTotalPrice;
 
     // Ensure that the cash received is sufficient
     if (calculatedChange < 0) {
@@ -76,23 +149,37 @@ export default function PaymentModal({
         return;
     }
 
-    const data = {
-        amount: parsedAmount,
-        paymentMethod: 'เงินสด',
-        change: calculatedChange, // Update to calculated change
-        transactionId: transactionId,
-        items: selectedProducts.map(product => ({
-            name: product.product_name,
-            price: Number(product.price) || 0,
-            quantity: product.quantity
-        })),
-        totalBeforeVAT: totalPrice // Add total before VAT
-    };
+    const items = selectedProducts.map(product => {
+      if (!product.id || !product.quantity) {
+          throw new Error(`Missing productId or quantity in item: ${JSON.stringify(product)}`);
+      }
+      
+      const priceBeforeDiscount = product.price * product.quantity; // ราคาก่อนหักส่วนลด
+      const discountAmount = product.discount || 0; // ส่วนลด
+      const priceAfterDiscount = priceBeforeDiscount - (discountAmount * product.quantity); // ราคาหลังหักส่วนลด
+  
+      return {
+          productId: product.id,
+          name: product.product_name,
+          priceBeforeDiscount, // ราคาก่อนหักส่วนลด
+          fullTotalPrice: priceAfterDiscount, // ราคาหลังหักส่วนลด
+          discountAmount, // ส่วนลด
+          quantity: product.quantity
+      };
+  });
+  
+  
 
-    // Log the payment data to check all fields
+    const data = {
+      amount: parsedAmount,
+      paymentMethod: 'เงินสด',
+      change: calculatedChange,
+      transactionId: transactionId,
+      items: items,
+      totalBeforeVAT: fullTotalPrice 
+    };
     console.log('Payment data:', data);
 
-    // Send the payment data to the API
     const response = await fetch('/api/payments', {
         method: 'POST',
         headers: {
@@ -102,31 +189,30 @@ export default function PaymentModal({
     });
 
     if (response.ok) {
-      const result = await response.json();
-      setChange(calculatedChange);
-      setPaymentData(data); 
+        const result = await response.json();
+        setChange(calculatedChange);
+        setPaymentData(data); 
   
-      setShowReceipt(true); 
+        setShowReceipt(true); 
   
-      Swal.fire({
-          icon: 'success',
-          title: `ทอนเงินจำนวน: ฿${calculatedChange.toFixed(2)}`,
-          // text: `ทอนเงินจำนวน: ฿${calculatedChange.toFixed(2)}`, 
-          confirmButtonText: 'ตกลง',
-      });
-  } else {
-      const errorData = await response.json();
-      console.error('Payment error:', errorData);
-      Swal.fire({
-          title: 'ผิดพลาด!',
-          text: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + errorData.error,
-          icon: 'error',
-          confirmButtonText: 'ตกลง',
-      });
-  }
-  
-  
+        Swal.fire({
+            icon: 'success',
+            title: `ทอนเงินจำนวน: ฿${calculatedChange.toFixed(2)}`,
+            confirmButtonText: 'ตกลง',
+        });
+    } else {
+        const errorData = await response.json();
+        console.error('Payment error:', errorData);
+        Swal.fire({
+            title: 'ผิดพลาด!',
+            text: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + errorData.error,
+            icon: 'error',
+            confirmButtonText: 'ตกลง',
+        });
+    }
 };
+
+
 
 const closeReceipt = () => {
   setShowReceipt(false);
@@ -174,9 +260,13 @@ const closeModalWithBackground = (e) => {
           className="text-right text-2xl font-bold mb-4 bg-white w-full rounded-lg p-2 border border-gray-300"
         />
 
-        <div className="text-right text-xl font-bold text-orange-500 mb-4">
-          ยอดรวมทั้งหมด: ฿{totalWithVAT.toFixed(2)}
-        </div>
+<div className="text-right text-xl font-bold text-orange-500 mb-4">
+  ยอดชำระทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
+  <br />
+  <div className="font-bold text-black mb-4">
+  ({numberToThaiText(fullTotalPrice)})
+  </div>
+</div>
 
         <div className="grid grid-cols-3 gap-2">
   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num, index) => (
@@ -250,26 +340,26 @@ const closeModalWithBackground = (e) => {
 
       </div>
 
-      {showReceipt && paymentData && ( // Check if paymentData is available
-        <Receipt
-    storeInfo={{
-        name: "Testing Invoice",
-        address: "Kasetsart University",
-        phone: "123-456-789"
-    }}
-    transactionId={transactionId}
-    date={date}
-    items={paymentData.items}
-    subtotal={totalPrice}
-    tax={(totalPrice * 0.07).toFixed(2)} // Assuming a 7% tax
-    total={(totalPrice + totalPrice * 0.07).toFixed(2)} // Total including tax
-    paymentMethod={paymentMethod}
-    change={change}
-    amountGiven={amount}
-    closeReceipt={closeReceipt}
-/>
+      {showReceipt && paymentData && ( 
+    <Receipt
+        storeInfo={{
+            name: storeName, 
+            address: "Kasetsart University",
+            phone: "123-456-789"
+        }}
+        transactionId={transactionId}
+        date={date}
+        items={paymentData.items}
+        subtotal={fullTotalPrice}
+        tax={(fullTotalPrice * 0.07).toFixed(2)}
+        total={(fullTotalPrice + fullTotalPrice * 0.07).toFixed(2)} 
+        paymentMethod={paymentMethod}
+        change={change}
+        amountGiven={amount}
+        closeReceipt={closeReceipt}
+    />
+)}
 
-      )}
     </div>
   );
 }
@@ -348,26 +438,40 @@ function Receipt({
 
         <h3 className="font-bold mb-2 text-center">รายการสินค้า</h3>
         <ul className="mb-4">
-          {items.map((item, index) => (
-            <li key={index} className="flex justify-between mb-1">
-              <span className="text-sm">
-                <strong>{item.quantity}x</strong> {item.name}
-              </span>
-              <span className="text-sm">฿{item.price.toFixed(2)}</span>
-            </li>
-          ))}
-        </ul>
+  {items.map((item, index) => (
+    <li key={index} className="flex justify-between mb-1">
+      <span className="text-sm">
+        <strong>{item.quantity}x</strong> {item.name}
+      </span>
+      <span className="text-sm">฿{item.priceBeforeDiscount.toFixed(2)}</span> 
+    </li>
+  ))}
+</ul>
+
+<ul className="mb-4">
+  {items.map((item, index) => (
+    item.discountAmount > 0 && ( // ตรวจสอบว่ามีส่วนลดมากกว่า 0 หรือไม่
+      <li key={index} className="flex justify-between mb-1">
+        <span className="text-sm"><strong>ส่วนลด</strong> {item.name}</span>
+        <span className="text-sm">-฿{item.discountAmount.toFixed(2)}</span>
+      </li>
+    )
+  ))}
+</ul>
+
+
 
         <div className="my-4 border-t border-gray-300"></div>
 
-        <div className="flex justify-between font-bold">
+
+        {/* <div className="flex justify-between font-bold">
           <span>ยอดรวมก่อน VAT</span>
           <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
         </div>
         <div className="flex justify-between">
           <span>VAT (7%)</span>
           <span>฿{tax ? parseFloat(tax).toFixed(2) : '0.00'}</span>
-        </div>
+        </div> */}
         <div className="flex justify-between">
           <span>ชำระเงินด้วย</span>
           <span>{paymentMethod}</span>
@@ -378,7 +482,7 @@ function Receipt({
         </div>
         <div className="flex justify-between font-bold">
           <span>ยอดรวมทั้งหมด</span>
-          <span>฿{total ? parseFloat(total).toFixed(2) : '0.00'}</span>
+          <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
         </div>
         <div className="flex justify-between">
           <span>เงินทอน</span>

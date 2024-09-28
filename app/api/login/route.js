@@ -78,7 +78,7 @@ export async function POST(req) {
   } catch (error) {
     console.error('Login error:', error);
     return new Response(
-      JSON.stringify({ error: 'ข้อผิดพลาดของฐานข้อมูล' }),
+      JSON.stringify({ error: 'ไม่สามารถติดต่อฐานข้อมูลได้' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

@@ -14,7 +14,9 @@ export default function PaymentModal({
   fullTotalPrice, 
   selectedProducts,
   storeId, 
-  storeName 
+  storeName,
+  darkMode
+
 }) {
   const [showModal, setShowModal] = useState(isModalOpen);
   const [isClosing, setIsClosing] = useState(false);
@@ -229,116 +231,118 @@ const closeModalWithBackground = (e) => {
   if (!showModal) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-      onClick={closeModalWithBackground}
-    >
-     <div 
-        className={`bg-white p-4 rounded-lg shadow-lg w-full max-w-lg mx-4 sm:mx-auto relative 
-          transform transition-transform duration-300 ${isClosing ? 'slide-out' : 'scale-100 animate-modal'}`}
-        onClick={(e) => e.stopPropagation()} 
-      >
-        <button 
-          onClick={closeModal} 
-          className="absolute top-4 right-4 text-red-500 hover:text-red-700"
-        >
-          <X className="h-6 w-6" />
-        </button>
-
-        <h2 className="text-xl font-bold mb-4 text-center">เลือกวิธีการชำระเงิน</h2>
-
-        <div className="flex justify-between mb-4">
-          <button variant="ghost" className="flex flex-col items-center">
-            <CreditCard className="h-6 w-6 text-blue-500" />
-            <span className="text-xs mt-1">เงินสด</span>
-          </button>
-        </div>
-
-        <input 
-          value={amount} 
-          readOnly 
-          className="text-right text-2xl font-bold mb-4 bg-white w-full rounded-lg p-2 border border-gray-300"
-        />
-
-<div className="text-right text-xl font-bold text-orange-500 mb-4">
-  ยอดชำระทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
-  <br />
-  <div className="font-bold text-black mb-4">
-  ({numberToThaiText(fullTotalPrice)})
-  </div>
-</div>
-
-        <div className="grid grid-cols-3 gap-2">
-  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num, index) => (
+<div 
+  className={`fixed inset-0 z-50 flex items-center justify-center ${darkMode ? 'bg-black bg-opacity-80' : 'bg-black bg-opacity-50'}`} 
+  onClick={closeModalWithBackground}
+>
+  <div 
+    className={`p-4 rounded-lg shadow-lg w-full max-w-lg mx-4 sm:mx-auto relative 
+      transform transition-transform duration-300 ${isClosing ? 'slide-out' : 'scale-100 animate-modal'} 
+      ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} // Apply dark mode styles here
+    onClick={(e) => e.stopPropagation()}
+  >
     <button 
-      key={index} 
-      onClick={() => handleNumberClick(num.toString())}
-      className="h-12 text-xl bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+      onClick={closeModal} 
+      className={`absolute top-4 right-4 ${darkMode ? 'text-red-300 hover:text-red-500' : 'text-red-500 hover:text-red-700'}`}
     >
-      {num}
+      <X className="h-6 w-6" />
     </button>
-  ))}
-  <button 
-    onClick={handleClear} 
-    className="h-12 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-  >
-    C
-  </button>
-  <button 
-    onClick={() => handleNumberClick('0')} 
-    className="h-12 text-xl bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    0
-  </button>
-  <button 
-    onClick={() => handleQuickAmount('1,000')} 
-    className="h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    1,000
-  </button>
-  <button 
-    onClick={() => handleQuickAmount('500')} 
-    className="h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    500
-  </button>
-  <button 
-    onClick={() => handleQuickAmount('100')} 
-    className="h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    100
-  </button>
-  <button 
-    onClick={() => handleQuickAmount('50')} 
-    className="h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    50
-  </button>
-  <button 
-    onClick={() => handleQuickAmount('20')} 
-    className="h-12 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-  >
-    20
-  </button>
-  <button 
-    onClick={handleFullPayment} 
-    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg transition mr-2"
-  >
-    ชำระเต็มจำนวน
-  </button>
-</div>
 
-<div className="flex justify-between mt-4">
+    <h2 className="text-xl font-bold mb-4 text-center">เลือกวิธีการชำระเงิน</h2>
 
-  <button 
-    onClick={handlePayment} 
-    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg transition ml-2"
-  >
-    ตกลง
-  </button>
-</div>
+    <div className="flex justify-between mb-4">
+      <button variant="ghost" className="flex flex-col items-center">
+        <CreditCard className={`h-6 w-6 ${darkMode ? 'text-blue-300' : 'text-blue-500'}`} />
+        <span className="text-xs mt-1">เงินสด</span>
+      </button>
+    </div>
 
+    <input 
+      value={amount} 
+      readOnly 
+      className={`text-right text-2xl font-bold mb-4 w-full rounded-lg p-2 border ${darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+    />
+
+    <div className={`text-right text-xl font-bold mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-500'}`}>
+      ยอดชำระทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
+      <br />
+      <div className={`font-bold mb-4 ${darkMode ? 'text-white' : 'text-black'}`}>
+        ({numberToThaiText(fullTotalPrice)})
       </div>
+    </div>
+
+    <div className="grid grid-cols-3 gap-2">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num, index) => (
+        <button 
+          key={index} 
+          onClick={() => handleNumberClick(num.toString())}
+          className={`h-12 text-xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+        >
+          {num}
+        </button>
+      ))}
+      <button 
+        onClick={handleClear} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-red-500 text-white hover:bg-red-600'}`}
+      >
+        C
+      </button>
+      <button 
+        onClick={() => handleNumberClick('0')} 
+        className={`h-12 text-xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        0
+      </button>
+      <button 
+        onClick={() => handleQuickAmount('1000')} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        1,000
+      </button>
+      <button 
+        onClick={() => handleQuickAmount('500')} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        500
+      </button>
+      <button 
+        onClick={() => handleQuickAmount('100')} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        100
+      </button>
+      <button 
+        onClick={() => handleQuickAmount('50')} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        50
+      </button>
+      <button 
+        onClick={() => handleQuickAmount('20')} 
+        className={`h-12 rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+      >
+        20
+      </button>
+      <button 
+        onClick={handleFullPayment} 
+        className={`flex-1 py-2 rounded-lg transition mr-2 ${darkMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+      >
+        ชำระเต็มจำนวน
+      </button>
+    </div>
+
+    <div className="flex justify-between mt-4">
+      <button 
+        onClick={handlePayment} 
+        className={`flex-1 py-2 rounded-lg transition ml-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+      >
+        ตกลง
+      </button>
+    </div>
+
+  </div>
+
+
 
       {showReceipt && paymentData && ( 
     <Receipt
@@ -375,7 +379,8 @@ function Receipt({
   paymentMethod, 
   change,
   amountGiven,
-  closeReceipt 
+  closeReceipt,
+  darkMode
 }) {
 
   const formattedDate = new Date(date).toLocaleString('th-TH', {
@@ -397,67 +402,69 @@ function Receipt({
       closeReceipt();
     }
   };
+  
 
   return (
-    <div 
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50" 
-      onClick={handleCloseReceipt} // เพิ่ม listener ที่นี่
-    >
-      <div 
-        className="w-full max-w-md mx-auto bg-white shadow-lg p-6 rounded-lg relative receipt-print"
-        onClick={(e) => e.stopPropagation()} // ป้องกันการปิดเมื่อคลิกภายในใบเสร็จ
+<div 
+  className={`fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 ${darkMode ? 'bg-black' : 'bg-white'}`} 
+  onClick={handleCloseReceipt} // เพิ่ม listener ที่นี่
+>
+  <div 
+    className={`w-full max-w-xs mx-auto ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} shadow-lg p-6 rounded-lg relative receipt-print`}
+    onClick={(e) => e.stopPropagation()} // ป้องกันการปิดเมื่อคลิกภายในใบเสร็จ
+  >
+    <div className="flex justify-between mt-4">
+      <div
+        onClick={closeReceipt} 
+        className="cursor-pointer text-blue-500 hover:text-blue-600 transition"
+        aria-label="ปิดใบเสร็จ"          
       >
-        <div className="flex justify-between mt-4">
-          <div
-              onClick={closeReceipt} 
-              className="cursor-pointer text-blue-500 hover:text-blue-600 transition"
-              aria-label="ปิดใบเสร็จ"          
-          >
-              <X className="h-5 w-5" />
-          </div>
-          
-          <div 
-              onClick={handlePrint} 
-              className="cursor-pointer text-blue-500 hover:text-blue-600 transition"
-              aria-label="พิมพ์ใบเสร็จ"
-          >
-              <Printer className="h-5 w-5" />
-          </div>
-        </div>
-        
-        <h2 className="text-2xl font-bold mb-4 text-center">ใบเสร็จรับเงิน</h2>
-        
-        <div className="text-center mb-2">
-          <h2 className="text-xl font-bold">{storeInfo.name}</h2>
-          <p className="text-sm text-gray-500">{storeInfo.address}</p>
-          <p className="text-sm text-gray-500">โทร: {storeInfo.phone}</p>
-          <p className="text-sm text-gray-500">วันที่: {formattedDate}</p>
-        </div>
+        <X className="h-5 w-5" />
+      </div>
 
-        <div className="my-4 border-t border-gray-300"></div>
+      <div 
+        onClick={handlePrint} 
+        className="cursor-pointer text-blue-500 hover:text-blue-600 transition"
+        aria-label="พิมพ์ใบเสร็จ"
+      >
+        <Printer className="h-5 w-5" />
+      </div>
+    </div>
+    
+    <h2 className="text-2xl font-bold mb-4 text-center">ใบเสร็จรับเงิน</h2>
+    
+    <div className="text-center mb-2">
+      <h2 className="text-xl font-bold">{storeInfo.name}</h2>
+      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{storeInfo.address}</p>
+      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>โทร: {storeInfo.phone}</p>
+      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>วันที่: {formattedDate}</p>
+    </div>
 
-        <h3 className="font-bold mb-2 text-center">รายการสินค้า</h3>
-        <ul className="mb-4">
-  {items.map((item, index) => (
-    <li key={index} className="flex justify-between mb-1">
-      <span className="text-sm">
-        <strong>{item.quantity}x</strong> {item.name}
-      </span>
-      <span className="text-sm">฿{item.priceBeforeDiscount.toFixed(2)}</span> 
-    </li>
-  ))}
-</ul>
+    <div className={`my-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}></div>
 
-<ul className="mb-4">
-  {items.map((item, index) => (
-    item.discountAmount > 0 && ( // ตรวจสอบว่ามีส่วนลดมากกว่า 0 หรือไม่
-      <li key={index} className="flex justify-between mb-1">
-        <span className="text-sm"><strong>ส่วนลด</strong> {item.name}</span>
-        <span className="text-sm">-฿{item.discountAmount.toFixed(2)}</span>
-      </li>
-    )
-  ))}
-</ul>
+    <h3 className="font-bold mb-2 text-center">รายการสินค้า</h3>
+    <ul className="mb-4">
+      {items.map((item, index) => (
+        <li key={index} className="flex justify-between mb-1">
+          <span className="text-sm">
+            <strong>{item.quantity}x</strong> {item.name}
+          </span>
+          <span className="text-sm">฿{item.priceBeforeDiscount.toFixed(2)}</span> 
+        </li>
+      ))}
+    </ul>
+
+    <ul className="mb-4">
+      {items.map((item, index) => (
+        item.discountAmount > 0 && ( // ตรวจสอบว่ามีส่วนลดมากกว่า 0 หรือไม่
+          <li key={index} className="flex justify-between mb-1">
+            <span className={`text-xs leading-tight truncate w-3/4 ${darkMode ? 'text-gray-300' : 'text-black'}`}><strong>ส่วนลด</strong> {item.name}</span> 
+            <span className={`text-xs leading-tight ${darkMode ? 'text-gray-300' : 'text-black'}`}>-฿{item.discountAmount.toFixed(2)}</span>
+          </li>
+        )
+      ))}
+    </ul>
+
 
 
 
@@ -477,11 +484,12 @@ function Receipt({
           <span>{paymentMethod}</span>
         </div>
         <div className="flex justify-between">
-          <span>จำนวนเงินที่ให้มา</span>
+          <span>รับมา</span>
           <span>฿{amountGiven ? parseFloat(amountGiven).toFixed(2) : '0.00'}</span> {/* แสดงจำนวนเงินที่ให้มา */}
         </div>
         <div className="flex justify-between font-bold">
           <span>ยอดรวมทั้งหมด</span>
+
           <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
         </div>
         <div className="flex justify-between">

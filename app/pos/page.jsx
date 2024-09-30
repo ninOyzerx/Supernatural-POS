@@ -7,6 +7,7 @@ import PaymentModal from '../components/keypad/paymentModal';
 import QuantityModal from '../components/keypad/quantityModal';
 import ChangeQuantityModal from '../components/keypad/changeQuantityModal';
 import { TicketPercent, ListFilter, ArrowDownNarrowWide, ArrowUpNarrowWide, ClockArrowUp ,Package,HandCoins,Pause  } from 'lucide-react';
+import { RxReload } from "react-icons/rx";
 
 
 
@@ -44,6 +45,50 @@ export default function Component() {
   const [fullTotalPrice, setFullTotalPrice] = useState(0);
   const [totalPriceAfterDiscount, setTotalPriceAfterDiscount] = useState(0);
 
+
+
+  
+  const fetchProductsByCategory = async (categoryId) => {
+    if (!storeId) return;
+    setLoading(true);  // เริ่มการโหลด
+    const sessionToken = localStorage.getItem('session'); // ดึง sessionToken จาก localStorage
+  
+    try {
+      const response = await fetch(`/api/products?category_id=${categoryId || ''}&store_id=${storeId}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`
+        }
+      });
+      const data = await response.json();
+      
+      // Simulate a 2-second delay before updating the products
+      setTimeout(() => {
+        setProducts(data);  // อัพเดทสินค้าหลังจาก 2 วินาที
+        setLoading(false);  // จบการโหลด
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setLoading(false);  // จบการโหลดในกรณีที่เกิดข้อผิดพลาด
+    }
+  };
+  
+  // ใช้ useEffect เพื่อโหลดสินค้าตอนเริ่มต้นและเมื่อเลือก category ใหม่
+  useEffect(() => {
+    if (selectedCategory === null) {
+      fetchProductsByCategory('');
+    } else {
+      fetchProductsByCategory(selectedCategory);
+    }
+  }, [selectedCategory, storeId]);
+  
+  // ฟังก์ชัน handleReload ที่ใช้เพื่อโหลดสินค้าซ้ำ
+  const handleReload = () => {
+    setLoading(true);  // เริ่มการโหลดเมื่อกดปุ่ม reload
+    fetchProductsByCategory(selectedCategory || '');
+  };
+  
+  
   useEffect(() => {
     let tempProducts = [...products];
 
@@ -799,12 +844,13 @@ export default function Component() {
                   <div className="flex-1 ml-4">
                     <h3 className="font-semibold">{product.product_name}</h3>
                     <p className={`text-orange-500`}>
-                      ฿{(Number(product.finalPrice) || Number(product.price)).toFixed(2)} {/* ใช้ finalPrice หากมี ไม่งั้นใช้ราคาต้นทาง */}
+                      {(Number(product.finalPrice * product.quantity) || Number(product.price * product.quantity)).toFixed(2)} ฿{/* ใช้ finalPrice หากมี ไม่งั้นใช้ราคาต้นทาง */}
                     </p>
                     {product.discount > 0 && (
-                      <p className="text-red-500">
-                        -฿{(product.discount * product.quantity).toFixed(2)} {/* จำนวนเงินที่ลด */}
-                      </p>
+   <p className="text-red-500 ml-2">
+   -{(product.discount).toFixed(2)} ฿
+ </p>
+ 
                     )}
                   </div>
                   <div className="flex items-center">
@@ -854,38 +900,51 @@ export default function Component() {
               ))}
             </div>
             <div className={`border-t pt-4 mt-4 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-              <div className="flex justify-between mb-6">
-                <span>ยอดรวมสินค้า</span>
-                <span>{fullTotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมราคาสินค้า */}
+              <div className="flex justify-between mb-0">
+                <span>รวม</span>
+                <span>{fullTotalPrice.toFixed(2)} ฿</span> 
               </div>
-              <div className="flex justify-between mb-6">
-                <span>ส่วนลด</span>
-                <div className="flex items-center text-red-500">
-                  <span className="mr-2">-฿{discount.toFixed(2)}</span>
-                  <svg
-                    onClick={handleApplyDiscount}
-                    className={`w-4 h-4 cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-300'} hover:text-blue-500 transition-colors`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </div>
-              </div>
+
+              {selectedProducts.reduce((totalDiscount, product) => {
+  return totalDiscount + (product.discount ? product.discount : 0) * product.quantity;
+}, 0) > 0 && (
+  <div className="flex justify-between mb-4">
+    <span>ส่วนลดรวม</span>
+    <div className="flex items-center text-red-500">
+      <span className="mr-0">
+        -{selectedProducts.reduce((totalDiscount, product) => {
+          return totalDiscount + (product.discount ? product.discount : 0) * product.quantity;
+        }, 0).toFixed(2)} ฿
+      </span>
+
+    {/* <svg
+      onClick={handleApplyDiscount}
+      className={`w-4 h-4 cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-300'} hover:text-blue-500 transition-colors`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M12 4v16m8-8H4"
+      />
+    </svg> */}
+  </div>
+  </div>
+  
+)}
+              <div className="flex justify-between mb-4"></div>
+
               {/* <div className="flex justify-between mb-5">
           <span>ภาษี (7%)</span>
           <span>{vatAmount.toFixed(2)} บาท</span>
         </div> */}
               <div className="flex justify-between font-bold text-lg mb-8 border-b pb-4">
-                <span>ยอดรวมทั้งหมด</span>
-                <span className="text-orange-500 text-xl">{fullTotalPrice.toFixed(2)} บาท</span> {/* แสดงยอดรวมหลังหักส่วนลด */}
+                <span>รวมสุทธิ</span>
+                <span className="text-orange-500 text-xl">{fullTotalPrice.toFixed(2)} ฿</span> {/* แสดงยอดรวมหลังหักส่วนลด */}
 
               </div>
 
@@ -997,129 +1056,154 @@ export default function Component() {
 
         <div className="flex justify-between items-center">
         <ul className="menu lg:menu-horizontal rounded-box shadow-md p-2 transition-all duration-300 ease-in-out flex-grow">
-        {/* Category Filter */}
-        <li>
-          <a
-            onClick={() => setSelectedCategory(null)}
-            className={`${
-              selectedCategory === null 
-                ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
-                : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-black'}`}`}
-          >
-            ทั้งหมด
-          </a>
-        </li>
-        {categories.map((category) => (
-          <li key={category.id}>
-            <a
-              onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
-              className={`${
-                selectedCategory === category.id 
-                  ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
-                  : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-black'}`}`}
-            >
-              {category.name}
-            </a>
-          </li>
-    ))}
-
-    {/* Dropdown Menu Button */}
-    <div className="relative ml-auto">
-  <button
-    className={`flex items-center gap-2 p-2 rounded-md transition-all transform 
-      ${filterDropdownOpen ? 'bg-blue-700 shadow-lg' : 'bg-blue-500'} 
-      hover:bg-blue-600 active:scale-95`}
-    onClick={handleDropdownToggle}
+{/* Category Filter */}
+<li>
+  <a
+    onClick={() => setSelectedCategory(null)}
+    className={`${
+      selectedCategory === null 
+        ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
+        : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-black'}`
+    } transition duration-300 transform hover:scale-105`} // Add transition and scale effect
   >
-    <ListFilter className="w-5 h-5" />
+    ทั้งหมด
+  </a>
+</li>
+{categories.map((category) => (
+  <li key={category.id}>
+    <a
+      onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
+      className={`${
+        selectedCategory === category.id 
+          ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
+          : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-200 text-black'}`
+      } transition duration-300 transform hover:scale-105`}
+    >
+      {category.name}
+    </a>
+  </li>
+))}
+
+
+{/* Container for both Dropdown and Reload Button */}
+<div className="flex items-center ml-auto space-x-2">
+  {/* Reload Button */}
+  <button
+    className="flex items-center gap-2 p-2 rounded-md bg-green-500 hover:bg-green-600 active:scale-95 transition-all"
+    onClick={handleReload}
+  >
+    <RxReload />
+
   </button>
 
-  {/* Dropdown Menu */}
-  {filterDropdownOpen && (
-    <ul className="absolute z-50 right-0 mt-2 bg-white shadow-lg rounded-md py-1 w-48"> {/* Increased z-index */}
-      <li>
-        <a
-          className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'latest' ? 'font-bold' : ''}`}
-          onClick={() => handleSortOption('latest')}
-        >
-          <div className={`flex items-center gap-x-2 ${darkMode ? 'text-black' : 'text-black'}`}>
-            <ClockArrowUp className={`w-4 h-4 ${darkMode ? 'text-black' : 'text-black'}`} />
-            เพิ่มล่าสุด
-          </div>
-        </a>
-      </li>
-      <li>
-        <a
-          className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'price-low-high' ? 'font-bold' : ''}`}
-          onClick={() => handleSortOption('price-low-high')}
-        >
-          <div className={`flex items-center gap-x-2 ${darkMode ? 'text-black' : 'text-black'}`}>
-            <ArrowDownNarrowWide className={`w-4 h-4 ${darkMode ? 'text-black' : 'text-black'}`} />
-            ราคาน้อยไปมาก
-          </div>
-        </a>
-      </li>
-      <li>
-        <a
-          className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'price-high-low' ? 'font-bold' : ''}`}
-          onClick={() => handleSortOption('price-high-low')}
-        >
-          <div className={`flex items-center gap-x-2 ${darkMode ? 'text-black' : 'text-black'}`}>
-            <ArrowUpNarrowWide className={`w-4 h-4 ${darkMode ? 'text-black' : 'text-black'}`} />
-            ราคามากไปน้อย
-          </div>
-        </a>
-      </li>
-    </ul>
-  )}
-</div>
+  {/* Dropdown Menu Button */}
+  <div className="relative">
+    <button
+      className={`flex items-center gap-2 p-2 rounded-md transition-all transform 
+        ${filterDropdownOpen ? 'bg-blue-700 shadow-lg' : 'bg-blue-500'} 
+        hover:bg-blue-600 active:scale-95`}
+      onClick={handleDropdownToggle}
+    >
+      <ListFilter className="w-5 h-5" />
+    </button>
 
+    {/* Dropdown Menu */}
+    {filterDropdownOpen && (
+      <ul className="absolute z-50 right-0 mt-2 bg-white shadow-lg rounded-md py-1 w-48">
+        <li>
+          <a
+            className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'latest' ? 'font-bold' : ''}`}
+            onClick={() => handleSortOption('latest')}
+          >
+            <div className="flex items-center gap-x-2 text-black">
+              <ClockArrowUp className="w-4 h-4" />
+              เพิ่มล่าสุด
+            </div>
+          </a>
+        </li>
+        <li>
+          <a
+            className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'price-low-high' ? 'font-bold' : ''}`}
+            onClick={() => handleSortOption('price-low-high')}
+          >
+            <div className="flex items-center gap-x-2 text-black">
+              <ArrowDownNarrowWide className="w-4 h-4" />
+              ราคาน้อยไปมาก
+            </div>
+          </a>
+        </li>
+        <li>
+          <a
+            className={`block px-4 py-2 hover:bg-gray-100 ${sortOption === 'price-high-low' ? 'font-bold' : ''}`}
+            onClick={() => handleSortOption('price-high-low')}
+          >
+            <div className="flex items-center gap-x-2 text-black">
+              <ArrowUpNarrowWide className="w-4 h-4" />
+              ราคามากไปน้อย
+            </div>
+          </a>
+        </li>
+      </ul>
+    )}
+  </div>
+  </div>
   </ul>
+  </div>
+
+
+
+{/* Product Grid */}
+<div className="flex-grow overflow-y-auto max-h-[calc(100vh-200px)]">
+  {loading ? (
+    <div className="flex justify-center items-center h-64">
+<span className="loading loading-ring loading-lg"></span>
 </div>
+  ) : (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
+      {filterProducts.length > 0 ? (
+        filterProducts.map((product) => (
+          <div
+            key={product.id}
+            className={`relative card ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-black'} shadow-md hover:shadow-lg transition-shadow flex flex-col cursor-pointer h-full`} // ใช้ relative ในการ์ด
+            onClick={() => handleQuantityProductClick(product)}
+          >
+            {/* Stock Badge */}
+            <span className={`absolute top-0 right-0 ${darkMode ? 'bg-red-600' : 'bg-red-500'} text-white text-xs px-2 py-1 rounded-full mt-2 mr-2 z-10 flex items-center gap-1`}>
+              <Package className="w-4 h-4" />
+              {product.stock_quantity || 'N/A'}
+            </span>
 
+            <figure className="relative w-full h-40 overflow-hidden mt-4"> {/* กำหนดความสูงแน่นอน */}
+              <img
+                src={product.img || 'default-image-url'}
+                alt={product.product_name || 'Product Image'}
+                className="w-full h-full object-contain"
+              />
+            </figure>
 
+            <div className="card-body flex flex-col p-2 flex-grow">
+              {/* Product Name */}
+              <h2 className={`card-title text-xs sm:text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-black'} mb-6 min-h-[40px]`}>
+                {product.product_name || 'Product Name'}
+              </h2>
+            </div>
 
-          {/* Product Grid */}
-          <div className="flex-grow overflow-y-auto max-h-[calc(100vh-200px)]">
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
-    {filterProducts.length > 0 ? (
-      filterProducts.map((product) => (
-        <div
-          key={product.id}
-          className={`card ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-black'} shadow-md hover:shadow-lg transition-shadow flex flex-col cursor-pointer relative`} // 'relative' for badge positioning
-          onClick={() => handleQuantityProductClick(product)}
-        >
-          {/* Stock Badge */}
-          <span className={`absolute top-0 right-0 ${darkMode ? 'bg-red-600' : 'bg-red-500'} text-white text-xs px-2 py-1 rounded-full mt-2 mr-2 z-10 flex items-center gap-1`}>
-            <Package className="w-4 h-4" /> {/* Adjust the icon size */}
-            {product.stock_quantity || 'N/A'}
-          </span>
-
-          <figure className="relative w-full h-32 overflow-hidden mt-4"> {/* Add margin-top to give space for badge */}
-            <img
-              src={product.img || 'default-image-url'}
-              alt={product.product_name || 'Product Image'}
-              className="w-full h-full object-contain"
-            />
-          </figure>
-
-          <div className="card-body flex flex-col p-2 flex-grow">
-            <h2 className={`card-title text-xs sm:text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-black'}`}>
-              {product.product_name || 'Product Name'}
-            </h2>
-            <p className={`text-base mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+            {/* Ensure price is placed at the bottom-left corner */}
+            <p className={`absolute bottom-2 left-2 text-base ${darkMode ? 'text-gray-400' : 'text-gray-700'}`}>
               ฿{product.price || 'N/A'}
             </p>
           </div>
+        ))
+      ) : (
+        <div className="col-span-full flex justify-center items-center h-32">
+          <p className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-black'} mb-4`}>
+            ไม่มีสินค้าที่ต้องแสดง
+          </p>
         </div>
-      ))
-    ) : (
-      <div className="col-span-full flex justify-center items-center h-32">
-        <p className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-black'} mb-4`}>
-          ไม่มีสินค้าที่ต้องแสดง
-        </p>
-      </div>
     )}
+
+
+
 
 
                   {/* <div
@@ -1135,6 +1219,8 @@ export default function Component() {
                   </div> */}
 
             </div>
+              )}
+
 
 
             {isQuantityModalOpen && (

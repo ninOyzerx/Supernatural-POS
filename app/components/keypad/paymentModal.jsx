@@ -28,6 +28,12 @@ export default function PaymentModal({
 
   const calculatedTotalPrice = fullTotalPrice;
 
+  const vatRate = 0.07;
+
+const subtotalBeforeVAT = fullTotalPrice / (1 + vatRate);
+
+const vatAmount = fullTotalPrice - subtotalBeforeVAT;
+
 
 
   function numberToThaiText(num) {
@@ -199,7 +205,7 @@ export default function PaymentModal({
   
         Swal.fire({
             icon: 'success',
-            title: `ทอนเงินจำนวน: ฿${calculatedChange.toFixed(2)}`,
+            title: `ทอนเงินจำนวน <br>${calculatedChange.toFixed(2)}฿`,
             confirmButtonText: 'ตกลง',
         });
     } else {
@@ -263,14 +269,14 @@ const closeModalWithBackground = (e) => {
       className={`text-right text-2xl font-bold mb-4 w-full rounded-lg p-2 border ${darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
     />
 
-    <div className={`text-right text-xl font-bold mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-500'}`}>
-      ยอดชำระทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
-      <br />
-      <div className={`font-bold mb-4 ${darkMode ? 'text-white' : 'text-black'}`}>
-        ({numberToThaiText(fullTotalPrice)})
+      {/* แสดงราคาสินค้าก่อน VAT, VAT 7%, และยอดรวม */}
+      <div className={`text-right text-xl font-bold mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-500'}`}>
+        ยอดรวมทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
+        <br />
+        <div className={`font-bold mb-4 ${darkMode ? 'text-white' : 'text-black'}`}>
+          ({numberToThaiText(fullTotalPrice)})
+        </div>
       </div>
-    </div>
-
     <div className="grid grid-cols-3 gap-2">
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num, index) => (
         <button 
@@ -344,27 +350,28 @@ const closeModalWithBackground = (e) => {
 
 
 
-      {showReceipt && paymentData && ( 
-    <Receipt
+    {/* ใบเสร็จ */}
+    {showReceipt && paymentData && (
+      <Receipt
         storeInfo={{
-            name: storeName, 
-            address: "Kasetsart University",
-            phone: "123-456-789"
+          name: storeName, 
+          address: "Kasetsart University",
+          phone: "123-456-789"
         }}
         transactionId={transactionId}
         date={date}
         items={paymentData.items}
-        subtotal={fullTotalPrice}
-        tax={(fullTotalPrice * 0.07).toFixed(2)}
-        total={(fullTotalPrice + fullTotalPrice * 0.07).toFixed(2)} 
+        subtotal={subtotalBeforeVAT.toFixed(2)} 
+        tax={vatAmount.toFixed(2)}
+        total={fullTotalPrice.toFixed(2)}
         paymentMethod={paymentMethod}
         change={change}
         amountGiven={amount}
         closeReceipt={closeReceipt}
-    />
-)}
-
-    </div>
+        darkMode={darkMode}
+      />
+    )}
+  </div>
   );
 }
 
@@ -406,11 +413,11 @@ function Receipt({
 
   return (
 <div 
-  className={`fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50 ${darkMode ? 'bg-black' : 'bg-white'}`} 
+  className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50" 
   onClick={handleCloseReceipt} // เพิ่ม listener ที่นี่
 >
   <div 
-    className={`w-full max-w-xs mx-auto ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'} shadow-lg p-6 rounded-lg relative receipt-print`}
+    className="w-full max-w-xs mx-auto bg-white text-black shadow-lg p-6 rounded-lg relative receipt-print"
     onClick={(e) => e.stopPropagation()} // ป้องกันการปิดเมื่อคลิกภายในใบเสร็จ
   >
     <div className="flex justify-between mt-4">
@@ -431,16 +438,17 @@ function Receipt({
       </div>
     </div>
     
-    <h2 className="text-2xl font-bold mb-4 text-center">ใบเสร็จรับเงิน</h2>
-    
+    <h1 className="text-2xl font-bold mb-0 text-center">EZyPOS</h1>
+    <h2 className="text-xl font-bold mb-3 text-center">ใบเสร็จรับเงิน</h2>
+
     <div className="text-center mb-2">
-      <h2 className="text-xl font-bold">{storeInfo.name}</h2>
-      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{storeInfo.address}</p>
-      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>โทร: {storeInfo.phone}</p>
-      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>วันที่: {formattedDate}</p>
+      <h2 className="text-lg font-bold">{storeInfo.name}</h2>
+      <p className="text-sm text-gray-500">{storeInfo.address}</p>
+      <p className="text-sm text-gray-500">โทร: {storeInfo.phone}</p>
+      <p className="text-sm text-gray-500">วันที่: {formattedDate}</p>
     </div>
 
-    <div className={`my-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}></div>
+    <div className="my-4 border-t border-gray-800 border-dashed"></div>
 
     <h3 className="font-bold mb-2 text-center">รายการสินค้า</h3>
     <ul className="mb-4">
@@ -458,57 +466,59 @@ function Receipt({
       {items.map((item, index) => (
         item.discountAmount > 0 && ( // ตรวจสอบว่ามีส่วนลดมากกว่า 0 หรือไม่
           <li key={index} className="flex justify-between mb-1">
-            <span className={`text-xs leading-tight truncate w-3/4 ${darkMode ? 'text-gray-300' : 'text-black'}`}><strong>ส่วนลด</strong> {item.name}</span> 
-            <span className={`text-xs leading-tight ${darkMode ? 'text-gray-300' : 'text-black'}`}>-฿{item.discountAmount.toFixed(2)}</span>
+            <span className="text-xs leading-tight truncate w-3/4"><strong>ส่วนลด</strong> {item.name}</span> 
+            <span className="text-xs leading-tight">-฿{item.discountAmount.toFixed(2)}</span>
           </li>
         )
       ))}
     </ul>
 
+    <div className="my-4 border-t border-gray-800 border-dashed"></div>
 
-
-
-        <div className="my-4 border-t border-gray-300"></div>
-
-
-        {/* <div className="flex justify-between font-bold">
-          <span>ยอดรวมก่อน VAT</span>
-          <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>VAT (7%)</span>
-          <span>฿{tax ? parseFloat(tax).toFixed(2) : '0.00'}</span>
-        </div> */}
-        <div className="flex justify-between">
-          <span>ชำระเงินด้วย</span>
-          <span>{paymentMethod}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>รับมา</span>
-          <span>฿{amountGiven ? parseFloat(amountGiven).toFixed(2) : '0.00'}</span> {/* แสดงจำนวนเงินที่ให้มา */}
-        </div>
-        <div className="flex justify-between font-bold">
-          <span>ยอดรวมทั้งหมด</span>
-
-          <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>เงินทอน</span>
-          <span>฿{change ? parseFloat(change).toFixed(2) : '0.00'}</span>
-        </div>
-
-        <div className="my-4 border-t border-gray-300"></div>
-        
-        <div className="text-xs text-center text-gray-500 mb-2">
-          <p>ขอบคุณที่ใช้บริการ!</p>
-          <p>กรุณาตรวจสอบใบเสร็จให้เรียบร้อย</p>
-          <p>ถ้าท่านมีข้อสงสัยโปรดติดต่อเรา</p>
-        </div>
-        <div className="text-xs text-center text-gray-500">
-          <p className="text-sm text-gray-500">รหัสการทำรายการ: {transactionId}</p>
-        </div>
-      </div>
+    {/* แสดงยอดรวมก่อน VAT, VAT, และยอดรวมหลัง VAT */}
+    <div className="flex justify-between">
+      <span>ยอดรวมก่อน VAT</span>
+      <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
     </div>
+    <div className="flex justify-between">
+      <span>VAT (7%)</span>
+      <span>฿{tax ? parseFloat(tax).toFixed(2) : '0.00'}</span>
+    </div>
+    
+    <div className="flex justify-between font-bold text-lg">
+      <span>สุทธิ</span>
+      <span>฿{total ? parseFloat(total).toFixed(2) : '0.00'}</span>
+    </div>
+
+    <div className="my-4 border-t border-gray-800 border-dashed"></div>
+
+    <div className="flex justify-between">
+      <span>ชำระเงินด้วย</span>
+      <span>{paymentMethod}</span>
+    </div>
+    <div className="flex justify-between">
+      <span>รับมา</span>
+      <span>฿{amountGiven ? parseFloat(amountGiven).toFixed(2) : '0.00'}</span> {/* แสดงจำนวนเงินที่ให้มา */}
+    </div>
+    <div className="flex justify-between">
+      <span>เงินทอน</span>
+      <span>฿{change ? parseFloat(change).toFixed(2) : '0.00'}</span>
+    </div>
+
+    <div className="my-4 border-t border-gray-800 border-dashed"></div>
+    
+    <div className="text-xs text-center text-gray-500 mb-2">
+      <p>ขอบคุณที่ใช้บริการ!</p>
+      <p>กรุณาตรวจสอบใบเสร็จให้เรียบร้อย</p>
+      <p>ถ้าท่านมีข้อสงสัยโปรดติดต่อเรา</p>
+    </div>
+    <div className="text-xs text-center text-gray-500">
+      <p className="text-sm text-gray-500">รหัสการทำรายการ: {transactionId}</p>
+    </div>
+  </div>
+</div>
+
+
   );
 }
 

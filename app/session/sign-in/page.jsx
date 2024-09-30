@@ -6,6 +6,7 @@ import { FaSun, FaMoon, FaUser, FaLock, FaUserCheck } from 'react-icons/fa';
 import { FaArrowRightToBracket } from 'react-icons/fa6';
 import { SlLogin } from "react-icons/sl";
 import { TiUserDelete } from "react-icons/ti";
+import { MdExpandMore, MdExpandLess, MdClose } from "react-icons/md";
 
 import './styles.css';
 
@@ -15,8 +16,11 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [lastLogin, setLastLogin] = useState(''); // State for last login
-  const [autoLogin, setAutoLogin] = useState(false); // Trigger for auto-login
+  const [lastLogin, setLastLogin] = useState('');
+  const [autoLogin, setAutoLogin] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showLastLogin, setShowLastLogin] = useState(true); // New state for lastLogin toggle
+  const [showCookieBanner, setShowCookieBanner] = useState(false); // Cookie banner state
 
   const toggleTheme = () => {
     const newTheme = !darkMode;
@@ -26,8 +30,10 @@ const Login = () => {
   };
 
   useEffect(() => {
-    // Retrieve saved theme
     const savedTheme = localStorage.getItem('theme');
+    const cookieConsent = localStorage.getItem('cookieConsent');
+    const savedShowLastLogin = localStorage.getItem('showLastLogin'); // Get saved lastLogin state
+
     if (savedTheme === 'dark') {
       setDarkMode(true);
       document.documentElement.classList.add('dark');
@@ -36,26 +42,44 @@ const Login = () => {
       document.documentElement.classList.remove('dark');
     }
 
-    // Retrieve last logged-in user and password from localStorage
+    if (savedShowLastLogin !== null) {
+      setShowLastLogin(JSON.parse(savedShowLastLogin)); // Set saved lastLogin state
+    }
+
     const lastLoggedInUser = localStorage.getItem('lastLogin');
-    const savedPassword = localStorage.getItem('password'); // Stored password (insecure, for demo purposes)
+    const savedPassword = localStorage.getItem('password');
     if (lastLoggedInUser && savedPassword) {
       setLastLogin(lastLoggedInUser);
     }
+
+    if (!cookieConsent) {
+      setShowCookieBanner(true);
+    }
   }, []);
 
-  // Trigger auto-login after username and password are updated
+  const handleCookieConsent = () => {
+    localStorage.setItem('cookieConsent', 'true');
+    setShowCookieBanner(false);
+  };
+
+  // Save showLastLogin state to localStorage when it's changed
+  const handleToggleLastLogin = () => {
+    const newValue = !showLastLogin;
+    setShowLastLogin(newValue);
+    localStorage.setItem('showLastLogin', JSON.stringify(newValue)); // Save new state to localStorage
+  };
+
   useEffect(() => {
     if (autoLogin && username && password) {
-      handleSubmit(new Event('submit')); // Trigger form submission
-      setAutoLogin(false); // Reset auto-login trigger
+      handleSubmit(new Event('submit'));
+      setAutoLogin(false);
     }
   }, [username, password, autoLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-  
+    setLoading(true); // แสดง loading
+
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -64,24 +88,21 @@ const Login = () => {
         },
         body: JSON.stringify({ username, password }),
       });
-  
+
       const data = await response.json();
-  
+
       if (response.ok) {
         const sessionToken = data.sessionToken;
         localStorage.setItem('session', sessionToken);
-  
-        // Store the username and password in localStorage for future reference
         localStorage.setItem('lastLogin', username);
-        localStorage.setItem('password', password); // Store password (not recommended for production)
-  
+        localStorage.setItem('password', password);
+
         Swal.fire({
           icon: 'success',
           title: 'เข้าสู่ระบบสำเร็จ !',
           confirmButtonText: 'ตกลง',
         }).then(() => {
-          // Navigate to /pos with darkMode as a query parameter
-          router.push(`/pos?darkMode=${darkMode}`);
+          router.push('/pos'); // เปลี่ยนเส้นทางไปยังหน้า pos
         });
       } else {
         Swal.fire({
@@ -98,17 +119,16 @@ const Login = () => {
         text: 'An error occurred. Please try again.',
       });
     } finally {
-      setLoading(false);
+      setLoading(false); // ซ่อน loading
     }
   };
-  
-  // Handle click on last login to autofill the username and password, and trigger auto-login
+
   const handleLastLoginClick = () => {
-    const savedPassword = localStorage.getItem('password'); // Retrieve stored password
+    const savedPassword = localStorage.getItem('password');
     if (savedPassword) {
-      setUsername(lastLogin); // Autofill username
-      setPassword(savedPassword); // Autofill password
-      setAutoLogin(true); // Trigger auto-login
+      setUsername(lastLogin);
+      setPassword(savedPassword);
+      setAutoLogin(true);
     } else {
       Swal.fire({
         icon: 'warning',
@@ -118,11 +138,10 @@ const Login = () => {
     }
   };
 
-  // Handle delete last login functionality
   const handleDeleteLastLogin = () => {
     localStorage.removeItem('lastLogin');
     localStorage.removeItem('password');
-    setLastLogin(''); // Clear the lastLogin state
+    setLastLogin('');
     Swal.fire({
       icon: 'info',
       title: 'ข้อมูลการล็อกอินถูกลบแล้ว',
@@ -144,12 +163,105 @@ const Login = () => {
         </div>
       </header>
 
-      <main className="flex flex-grow justify-center items-center opacity-90">
-        {/* Centered Login Card */}
-        <div className={`card w-full max-w-sm transition-all duration-1000 ease-in-out shadow-xl ${darkMode ? 'bg-gray-900' : 'bg-blue-500'} slide-in-left animate-fade-in`}>
+      <main className="flex flex-grow justify-center items-center opacity-90 relative">
+        {/* Toggle for showing last login */}
+        <div className="absolute top-4 right-4">
+  <label className="inline-flex items-center cursor-pointer">
+    <input 
+      type="checkbox" 
+      className="sr-only" 
+      checked={showLastLogin} 
+      onChange={handleToggleLastLogin} 
+    />
+    <div 
+      className={`w-12 h-6 rounded-full shadow-inner relative transition-colors duration-300 ${
+        showLastLogin 
+          ? darkMode 
+            ? 'bg-green-400'  // สีเขียวสว่างใน dark mode
+            : 'bg-green-500'  // สีเขียวใน light mode
+          : darkMode 
+            ? 'bg-gray-600'   // สีเทาใน dark mode
+            : 'bg-gray-300'   // สีเทาใน light mode
+      }`}
+    >
+      <div
+        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+          showLastLogin ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      ></div>
+    </div>
+    <span className={`ml-2 text-sm transition-colors ${
+      darkMode ? 'text-gray-300' : 'text-gray-600'
+    }`}>
+      เข้าสู่ระบบอย่างรวดเร็ว
+    </span>
+  </label>
+</div>
+
+
+
+        <button
+          className={`absolute top-[-45px] right-4 p-3 rounded-full focus:outline-none ${darkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? <MdExpandLess className="text-xl" /> : <MdExpandMore className="text-xl" />}
+        </button>
+
+        {/* Cookie Banner */}
+        {showCookieBanner && (
+  <div className="fixed bottom-14 right-2 z-50">
+    <div className="relative bg-white shadow-lg border border-gray-300 rounded-lg p-4 max-w-sm">
+      {/* ปุ่มปิด (X) */}
+      <button
+        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+        onClick={() => setShowCookieBanner(false)}  // ฟังก์ชันปิดแบนเนอร์
+      >
+        < MdClose />
+      </button>
+
+      <div className="flex items-center">
+        <img
+          src="https://media0.giphy.com/media/L3u3WyrmJXR5QtiDhL/giphy.gif?cid=6c09b9527sbdexgkaw0alb46rkp4w8vhq21s3fy93ksldh7q&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=s"
+          alt="Cookie"
+          className="w-20 h-20 mr-3"
+        />
+        <div>
+          <h3 className="font-semibold text-gray-700">Cookie Policy</h3>
+          <p className="text-sm text-gray-600 mt-4">
+            เว็บไซต์นี้ใช้คุกกี้เพื่อพัฒนาประสบการณ์การใช้งานของคุณ โปรดยอมรับคุกกี้เพื่อดำเนินการต่อ
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            คุกกี้จะไม่เก็บข้อมูลส่วนตัวที่สามารถระบุตัวตนของคุณได้ และจะไม่ส่งผลต่อความปลอดภัยของข้อมูลส่วนตัวของคุณ.{' '}
+            <button
+              onClick={() => window.open('https://cookieinformation.com/th/what-is-a-cookie-policy/', '_blank')}
+              className="text-blue-500 underline hover:text-blue-700"
+            >
+              อ่านเพิ่มเติม
+            </button>
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          className="bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 focus:outline-none"
+          onClick={handleCookieConsent}
+        >
+          ยอมรับ
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
+
+        {/* Sliding content from right */}
+        <div className={`card w-full max-w-sm transition-transform duration-700 ease-in-out shadow-xl ${darkMode ? 'bg-gray-900' : 'bg-blue-500'} ${isExpanded ? 'transform translate-x-[-7px] scale-95' : ''}`}>
+          {/* ส่วนของฟอร์มเข้าสู่ระบบ */}
           <div className="card-body">
             <h1 className={`typewriter-animation text-3xl font-bold text-center ${darkMode ? 'text-blue-300' : 'text-black'} mb-6`}></h1>
-            
             <form onSubmit={handleSubmit}>
               <div className="form-control relative mb-4">
                 <FaUser className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-blue-400' : 'text-gray-500'}`} />
@@ -209,65 +321,73 @@ const Login = () => {
                 </button>
               </div>
 
-              {lastLogin && (
-  <>
-    <h3 className='mt-4 text-sm font-semibold text-white-600'>
-      Quick Last Login
-    </h3>
+              {showLastLogin && lastLogin && (
+                <>
+                  <h3 className='mt-4 text-sm font-semibold text-white-600'>
+                    Quick Login
+                  </h3>
 
-    <div className="flex items-center justify-between mt-2">
-  {/* Quick Login Information */}
-  <div
-    className={`last-login-container flex items-center justify-between w-full max-w-[500px] p-3 rounded-md shadow-md transition-transform transform hover:scale-105 cursor-pointer ${
-      darkMode ? 'bg-gray-800 border-blue-500' : 'bg-blue-100 border-blue-300'
-    }`}
-    onClick={handleLastLoginClick} // Clickable quick login
-  >
-    <div className="flex items-center space-x-2">
-      <FaUserCheck className={`text-xl ${darkMode ? 'text-blue-500' : 'text-blue-700'}`} />
-      <span className={`text-sm font-medium ${darkMode ? 'text-blue-500' : 'text-blue-800'}`}>
-        <strong>{lastLogin}</strong>
-      </span>
-    </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div
+                      className={`last-login-container flex items-center justify-between w-full max-w-[500px] p-3 rounded-md shadow-md transition-transform transform hover:scale-105 cursor-pointer ${
+                        darkMode ? 'bg-gray-800 border-blue-500' : 'bg-blue-100 border-blue-300'
+                      }`}
+                      onClick={handleLastLoginClick}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <FaUserCheck className={`text-xl ${darkMode ? 'text-blue-500' : 'text-blue-700'}`} />
+                        <span className={`text-sm font-medium ${darkMode ? 'text-blue-500' : 'text-blue-800'}`}>
+                          <strong>{lastLogin}</strong>
+                        </span>
+                      </div>
 
-    <FaArrowRightToBracket className={`text-sm arrow-icon transition-transform duration-300 ${darkMode ? 'text-blue-500' : 'text-blue-700'}`} />
-  </div>
+                      <FaArrowRightToBracket className={`text-sm arrow-icon transition-transform duration-300 ${darkMode ? 'text-blue-500' : 'text-blue-700'}`} />
+                    </div>
 
-  {/* Delete Last Login Icon with Tooltip */}
-  <div className="ml-4 relative flex items-center space-x-2 group">
-    <TiUserDelete
-      onClick={handleDeleteLastLogin} // Call the delete function
-      className="text-2xl cursor-pointer text-red-500 hover:text-red-700"
-    />
-    <span className="absolute bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-      ลบข้อมูลการล็อกอิน
-    </span>
-  </div>
-</div>
-
-
-
-  </>
-)}
-
-
+                    <div className="ml-4 relative flex items-center space-x-2 group">
+                      <TiUserDelete
+                        onClick={handleDeleteLastLogin}
+                        className="text-2xl cursor-pointer text-red-500 hover:text-red-700"
+                      />
+                      <span className="absolute bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        ลบข้อมูลการล็อกอิน
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </form>
-
-            <p className="mt-4 text-center">
-              <a
-                href="/get-pos"
-                className={`link ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-white hover:text-blue-300'}`}
-              >
-                รับการใช้งานระบบ
-              </a>
-            </p>
           </div>
         </div>
+
+        {/* Expanded card with information sliding from right */}
+        {isExpanded && (
+          <div
+            className={`absolute right-0 top-0 h-full p-4 transform transition-transform duration-700 ease-in-out ${
+              isExpanded ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+            } ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-200 text-black'} w-[250px]`} 
+          >
+            {/* ข้อมูลเพิ่มเติม */}
+            <h2 className="text-lg font-bold text-center mb-4">
+              งานนี้เป็นส่วนหนึ่งของโปรเจค HCI และ Workshop II
+            </h2>
+            <h3 className="text-lg font-semibold text-center mb-4">
+              รายชื่อผู้จัดทำ
+            </h3>
+            <p className="text-sm mt-3 leading-relaxed">
+              <strong>6430251179</strong> นายภูมินทร์ สุขสุวรรณ <br />
+              <strong>6430251012</strong> นายกรวิทย์ ผิวฟัก <br />
+              <strong>6430251161</strong> นายพัชรพล นิลทสุข <br />
+              <strong>6430251217</strong> นายรัชชานนท์ วันทอง <br />
+              <strong>6430251047</strong> นายชยุตม์ แซ่อั๊ง
+            </p>
+          </div>
+        )}
       </main>
 
       <footer className="footer footer-center bg-base-300 text-base-content p-4 mt-auto">
         <aside>
-          <p>Copyright © {new Date().getFullYear()} - All right reserved by Supernatural Co. Ltd</p>
+          <p>Copyright © {new Date().getFullYear()} - This project is part of the final year project for the course HCI and Workshop II.</p>
         </aside>
       </footer>
     </div>

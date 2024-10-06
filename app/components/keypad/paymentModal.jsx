@@ -13,6 +13,7 @@ export default function PaymentModal({
   closeModal,
   fullTotalPrice, 
   selectedProducts,
+  setSelectedProducts, 
   storeId, 
   storeName,
   darkMode
@@ -131,7 +132,7 @@ const vatAmount = fullTotalPrice - subtotalBeforeVAT;
 
   const handlePayment = async () => {
     const parsedAmount = parseFloat(amount);
-    
+  
     // Validate input amount
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
         Swal.fire({
@@ -142,10 +143,24 @@ const vatAmount = fullTotalPrice - subtotalBeforeVAT;
         });
         return;
     }
-
+  
+    // ตรวจสอบสต็อกสินค้าว่าหมดหรือไม่
+    const outOfStockItems = selectedProducts.filter((product) => product.stock_quantity === 0);
+  
+    if (outOfStockItems.length > 0) {
+      // ถ้ามีสินค้าที่สต็อกหมด จะแจ้งเตือนผู้ใช้
+      Swal.fire({
+          title: 'สินค้าหมดสต็อก!',
+          text: `สินค้าบางรายการหมดสต็อก: ${outOfStockItems.map(item => item.product_name).join(', ')}`,
+          icon: 'error',
+          confirmButtonText: 'ตกลง',
+      });
+      return; // หยุดการทำงานของการชำระเงิน
+    }
+  
     // Calculate change
     const calculatedChange = parsedAmount - fullTotalPrice;
-
+  
     // Ensure that the cash received is sufficient
     if (calculatedChange < 0) {
         Swal.fire({
@@ -156,38 +171,27 @@ const vatAmount = fullTotalPrice - subtotalBeforeVAT;
         });
         return;
     }
-
-    const items = selectedProducts.map(product => {
-      if (!product.id || !product.quantity) {
-          throw new Error(`Missing productId or quantity in item: ${JSON.stringify(product)}`);
-      }
-      
-      const priceBeforeDiscount = product.price * product.quantity; // ราคาก่อนหักส่วนลด
-      const discountAmount = product.discount || 0; // ส่วนลด
-      const priceAfterDiscount = priceBeforeDiscount - (discountAmount * product.quantity); // ราคาหลังหักส่วนลด
   
-      return {
-          productId: product.id,
-          name: product.product_name,
-          priceBeforeDiscount, // ราคาก่อนหักส่วนลด
-          fullTotalPrice: priceAfterDiscount, // ราคาหลังหักส่วนลด
-          discountAmount, // ส่วนลด
-          quantity: product.quantity
-      };
-  });
+    const items = selectedProducts.map(product => ({
+      productId: product.id,
+      name: product.product_name,
+      priceBeforeDiscount: product.price * product.quantity,
+      fullTotalPrice: product.price * product.quantity - (product.discount || 0) * product.quantity,
+      discountAmount: product.discount || 0,
+      quantity: product.quantity
+    }));
   
-  
-
     const data = {
       amount: parsedAmount,
       paymentMethod: 'เงินสด',
       change: calculatedChange,
       transactionId: transactionId,
       items: items,
-      totalBeforeVAT: fullTotalPrice 
+      totalBeforeVAT: fullTotalPrice
     };
+    
     console.log('Payment data:', data);
-
+  
     const response = await fetch('/api/payments', {
         method: 'POST',
         headers: {
@@ -195,14 +199,12 @@ const vatAmount = fullTotalPrice - subtotalBeforeVAT;
         },
         body: JSON.stringify(data),
     });
-
+  
     if (response.ok) {
         const result = await response.json();
         setChange(calculatedChange);
-        setPaymentData(data); 
-  
-        setShowReceipt(true); 
-  
+        setPaymentData(data);
+        setShowReceipt(true);
         Swal.fire({
             icon: 'success',
             title: `ทอนเงินจำนวน <br>${calculatedChange.toFixed(2)}฿`,
@@ -210,21 +212,26 @@ const vatAmount = fullTotalPrice - subtotalBeforeVAT;
         });
     } else {
         const errorData = await response.json();
-        console.error('Payment error:', errorData);
         Swal.fire({
             title: 'ผิดพลาด!',
-            text: 'เกิดข้อผิดพลาดในการบันทึกการชำระเงิน: ' + errorData.error,
+            text: 'เกิดข้อผิดพลาดในการชำระเงิน: ' + errorData.error,
             icon: 'error',
             confirmButtonText: 'ตกลง',
         });
     }
-};
-
+  };
+  
 
 
 const closeReceipt = () => {
   setShowReceipt(false);
-  window.location.reload(); 
+
+    setSelectedProducts([]);
+
+    localStorage.removeItem('selectedProducts');  
+
+    window.location.reload(); 
+
 };
 
 
@@ -254,26 +261,26 @@ const closeModalWithBackground = (e) => {
       <X className="h-6 w-6" />
     </button>
 
-    <h2 className="text-xl font-bold mb-4 text-center">เลือกวิธีการชำระเงิน</h2>
+    <h2 className="text-3xl font-bold mb-4 text-center">เลือกวิธีการชำระเงิน</h2>
 
-    <div className="flex justify-between mb-4">
+    <div className="flex justify-between mb-4 text-2xl">
       <button variant="ghost" className="flex flex-col items-center">
         <CreditCard className={`h-6 w-6 ${darkMode ? 'text-blue-300' : 'text-blue-500'}`} />
-        <span className="text-xs mt-1">เงินสด</span>
+        <span className="text-xl mt-1">เงินสด</span>
       </button>
     </div>
 
     <input 
       value={amount} 
       readOnly 
-      className={`text-right text-2xl font-bold mb-4 w-full rounded-lg p-2 border ${darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+      className={`text-right text-3xl font-bold mb-4 w-full rounded-lg p-2 border ${darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
     />
 
       {/* แสดงราคาสินค้าก่อน VAT, VAT 7%, และยอดรวม */}
-      <div className={`text-right text-xl font-bold mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-500'}`}>
+      <div className={`text-right text-2xl font-bold mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-500'}`}>
         ยอดรวมทั้งหมด: ฿{fullTotalPrice.toFixed(2)}
         <br />
-        <div className={`font-bold mb-4 ${darkMode ? 'text-white' : 'text-black'}`}>
+        <div className={` text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-black'}`}>
           ({numberToThaiText(fullTotalPrice)})
         </div>
       </div>
@@ -282,7 +289,7 @@ const closeModalWithBackground = (e) => {
         <button 
           key={index} 
           onClick={() => handleNumberClick(num.toString())}
-          className={`h-12 text-xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+          className={`h-12 text-3xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
         >
           {num}
         </button>
@@ -295,7 +302,7 @@ const closeModalWithBackground = (e) => {
       </button>
       <button 
         onClick={() => handleNumberClick('0')} 
-        className={`h-12 text-xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+        className={`h-12 text-3xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
       >
         0
       </button>
@@ -438,14 +445,14 @@ function Receipt({
       </div>
     </div>
     
-    <h1 className="text-2xl font-bold mb-0 text-center">EZyPOS</h1>
-    <h2 className="text-xl font-bold mb-3 text-center">ใบเสร็จรับเงิน</h2>
+    <h1 className="text-3xl font-bold mb-0 text-center">EZyPOS</h1>
+    <h2 className="text-2xl font-bold mb-3 text-center">ใบเสร็จรับเงิน</h2>
 
     <div className="text-center mb-2">
-      <h2 className="text-lg font-bold">{storeInfo.name}</h2>
-      <p className="text-sm text-gray-500">{storeInfo.address}</p>
-      <p className="text-sm text-gray-500">โทร: {storeInfo.phone}</p>
-      <p className="text-sm text-gray-500">วันที่: {formattedDate}</p>
+      <h2 className="text-2xl font-bold">{storeInfo.name}</h2>
+      <p className="text-xl font-semibold text-gray-500">{storeInfo.address}</p>
+      <p className="text-xl font-semibold text-gray-500">โทร: {storeInfo.phone}</p>
+      <p className="text-xl font-semibold text-gray-500">วันที่: {formattedDate}</p>
     </div>
 
     <div className="my-4 border-t border-gray-800 border-dashed"></div>
@@ -454,10 +461,10 @@ function Receipt({
     <ul className="mb-4">
       {items.map((item, index) => (
         <li key={index} className="flex justify-between mb-1">
-          <span className="text-sm">
+          <span className="text-xl">
             <strong>{item.quantity}x</strong> {item.name}
           </span>
-          <span className="text-sm">฿{item.priceBeforeDiscount.toFixed(2)}</span> 
+          <span className="text-xl">฿{item.priceBeforeDiscount.toFixed(2)}</span> 
         </li>
       ))}
     </ul>
@@ -466,8 +473,8 @@ function Receipt({
       {items.map((item, index) => (
         item.discountAmount > 0 && ( // ตรวจสอบว่ามีส่วนลดมากกว่า 0 หรือไม่
           <li key={index} className="flex justify-between mb-1">
-            <span className="text-xs leading-tight truncate w-3/4"><strong>ส่วนลด</strong> {item.name}</span> 
-            <span className="text-xs leading-tight">-฿{item.discountAmount.toFixed(2)}</span>
+            <span className="text-xl leading-tight truncate w-3/4"><strong>ส่วนลด</strong> {item.name}</span> 
+            <span className="text-xl leading-tight">-฿{item.discountAmount.toFixed(2)}</span>
           </li>
         )
       ))}
@@ -476,44 +483,44 @@ function Receipt({
     <div className="my-4 border-t border-gray-800 border-dashed"></div>
 
     {/* แสดงยอดรวมก่อน VAT, VAT, และยอดรวมหลัง VAT */}
-    <div className="flex justify-between">
+    <div className="flex justify-between text-2xl">
       <span>ยอดรวมก่อน VAT</span>
       <span>฿{subtotal ? parseFloat(subtotal).toFixed(2) : '0.00'}</span>
     </div>
-    <div className="flex justify-between">
+    <div className="flex justify-between text-2xl">
       <span>VAT (7%)</span>
       <span>฿{tax ? parseFloat(tax).toFixed(2) : '0.00'}</span>
     </div>
     
-    <div className="flex justify-between font-bold text-lg">
+    <div className="flex justify-between font-bold text-3xl">
       <span>สุทธิ</span>
       <span>฿{total ? parseFloat(total).toFixed(2) : '0.00'}</span>
     </div>
 
     <div className="my-4 border-t border-gray-800 border-dashed"></div>
 
-    <div className="flex justify-between">
+    <div className="flex justify-between text-2xl">
       <span>ชำระเงินด้วย</span>
       <span>{paymentMethod}</span>
     </div>
-    <div className="flex justify-between">
+    <div className="flex justify-between text-2xl">
       <span>รับมา</span>
       <span>฿{amountGiven ? parseFloat(amountGiven).toFixed(2) : '0.00'}</span> {/* แสดงจำนวนเงินที่ให้มา */}
     </div>
-    <div className="flex justify-between">
+    <div className="flex justify-between text-2xl">
       <span>เงินทอน</span>
       <span>฿{change ? parseFloat(change).toFixed(2) : '0.00'}</span>
     </div>
 
     <div className="my-4 border-t border-gray-800 border-dashed"></div>
     
-    <div className="text-xs text-center text-gray-500 mb-2">
+    <div className="text-xl fold-semibold text-center text-gray-500 mb-2">
       <p>ขอบคุณที่ใช้บริการ!</p>
       <p>กรุณาตรวจสอบใบเสร็จให้เรียบร้อย</p>
       <p>ถ้าท่านมีข้อสงสัยโปรดติดต่อเรา</p>
     </div>
     <div className="text-xs text-center text-gray-500">
-      <p className="text-sm text-gray-500">รหัสการทำรายการ: {transactionId}</p>
+      <p className="text-xl font-semibold text-gray-500">รหัสการทำรายการ: {transactionId}</p>
     </div>
   </div>
 </div>

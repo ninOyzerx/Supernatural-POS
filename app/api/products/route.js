@@ -10,6 +10,7 @@ export async function GET(req) {
     const url = new URL(req.url);
     const categoryId = url.searchParams.get('category_id');
     const storeId = url.searchParams.get('store_id');
+    const productCode = url.searchParams.get('product_code');  // ดึง product_code จากพารามิเตอร์
 
     if (!sessionToken || !storeId) {
       return NextResponse.json({ message: 'Authorization details are missing' }, { status: 401 });
@@ -43,6 +44,18 @@ export async function GET(req) {
     const store = storeResults[0];
     if (!store) {
       return NextResponse.json({ message: 'Store not found' }, { status: 404 });
+    }
+
+    // ตรวจสอบว่ามี product_code หรือไม่ และทำการค้นหาด้วย product_code
+    if (productCode) {
+      const [productResults] = await db.query('SELECT * FROM products WHERE product_code = ? AND store_id = ?', [productCode, storeId]);
+      const product = productResults[0];
+      
+      if (!product) {
+        return NextResponse.json({ message: 'ไม่พบสินค้าในฐานข้อมูล' }, { status: 404 });
+      }
+
+      return NextResponse.json(product);
     }
 
     // Fetch products for the store and category

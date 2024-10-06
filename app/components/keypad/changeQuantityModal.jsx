@@ -1,8 +1,10 @@
 import { X, Delete, CircleX } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import '../../globals.css';
 
 export default function ChangeQuantityModal({
   quantity,
+  productName,
   isModalOpen,
   closeModal,
   handleChangeQuantity,
@@ -85,9 +87,13 @@ export default function ChangeQuantityModal({
         </button>
   
         {/* Modal Title */}
-        <h2 className={`text-xl font-bold mb-4 text-center ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-          จำนวนสินค้า
+        <h2 className={`text-3xl font-bold mb-4 text-center ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+          เปลี่ยนจำนวนสินค้า
         </h2>
+
+        <p className={`text-center text-3xl mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          {productName}
+        </p>
   
         {/* Input Quantity Display */}
         <div className={`flex justify-between items-center mb-4 w-full rounded-lg p-2 ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'}`}>
@@ -117,7 +123,7 @@ export default function ChangeQuantityModal({
             <button
               key={num}
               onClick={() => handleNumberClick(num)}
-              className={`h-16 text-2xl rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+              className={`h-16 text-3xl font-semibold rounded-lg transition ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
             >
               {num}
             </button>
@@ -127,7 +133,7 @@ export default function ChangeQuantityModal({
           <button
             key={0}
             onClick={() => handleNumberClick(0)}
-            className={`h-16 text-2xl rounded-lg transition col-start-2 col-end-3 ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+            className={`h-16 text-3xl font-semibold rounded-lg transition col-start-2 col-end-3 ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
           >
             0
           </button>

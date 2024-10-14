@@ -7,8 +7,12 @@ import { FaArrowRightToBracket } from 'react-icons/fa6';
 import { SlLogin } from "react-icons/sl";
 import { TiUserDelete } from "react-icons/ti";
 import { MdExpandMore, MdExpandLess, MdClose } from "react-icons/md";
+import { LuScanFace } from "react-icons/lu";
+import UploadFace from '../../components/face-id/uploadFace';
+
 
 import './styles.css';
+import '../../globals.css';
 
 const Login = () => {
   const router = useRouter();
@@ -28,6 +32,71 @@ const Login = () => {
     document.documentElement.classList.toggle('dark', newTheme);
     localStorage.setItem('theme', newTheme ? 'dark' : 'light');
   };
+
+
+  useEffect(() => {
+    // Check for session token and store ID in localStorage
+    const sessionToken = localStorage.getItem('session');
+    const storeId = localStorage.getItem('storeId');
+
+    // Perform the session check only if the sessionToken and storeId exist
+    if (sessionToken && storeId) {
+      fetch('/api/validate-session', {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.storeId) {
+          // If session is valid, show notification and redirect to POS
+          Swal.fire({
+            icon: 'info',
+            title: `คุณได้เข้าสู่ระบบแล้ว`,
+            text: 'กำลังเปลี่ยนเส้นทางไปยังหน้า POS...',
+            timer: 4000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+            willClose: () => {
+              router.push('/pos');
+            }
+          });
+        } else {
+          // If session is invalid, remove sessionToken and storeId from localStorage
+          localStorage.removeItem('session'); // Remove sessionToken
+          localStorage.removeItem('storeId'); // Remove storeId
+          Swal.fire({
+            icon: 'error',
+            title: 'Session ไม่ถูกต้องหรือหมดอายุ',
+            text: 'กรุณาเข้าสู่ระบบอีกครั้ง',
+            confirmButtonText: 'ตกลง',
+          }).then(() => {
+            router.push('/session/sign-in'); // Redirect to sign-in page
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error validating session:', error);
+        localStorage.removeItem('session'); 
+        localStorage.removeItem('storeId'); 
+        Swal.fire({
+          icon: 'error',
+          title: 'เกิดข้อผิดพลาด!',
+          text: 'ไม่สามารถตรวจสอบเซสชันได้ กรุณาเข้าสู่ระบบใหม่',
+          confirmButtonText: 'ตกลง',
+        }).then(() => {
+          router.push('/session/sign-in'); 
+        });
+      });
+    } else {
+
+      localStorage.removeItem('session');
+      localStorage.removeItem('storeId'); 
+      router.push('/session/sign-in'); 
+    }
+  }, [router]);
+  
+
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -78,8 +147,8 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); // แสดง loading
-
+    setLoading(true); 
+  
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -88,19 +157,41 @@ const Login = () => {
         },
         body: JSON.stringify({ username, password }),
       });
-
+  
       const data = await response.json();
-
+  
       if (response.ok) {
         const sessionToken = data.sessionToken;
+        const storeId = data.storeId;  // รับค่า storeId จาก API
+  
+        // เก็บ sessionToken และ storeId ลงใน localStorage
         localStorage.setItem('session', sessionToken);
+        localStorage.setItem('storeId', storeId);  // เก็บ storeId
+  
         localStorage.setItem('lastLogin', username);
         localStorage.setItem('password', password);
-
+  
         Swal.fire({
           icon: 'success',
-          title: 'เข้าสู่ระบบสำเร็จ !',
+          title: 'เข้าสู่ระบบสำเร็จ!',
           confirmButtonText: 'ตกลง',
+          timer: 3000,  // ปิดอัตโนมัติใน 3 วินาที
+          timerProgressBar: true,
+          customClass: {
+            title: 'font-thai',
+            htmlContainer: 'font-thai',  // ใช้สำหรับข้อความ
+            confirmButton: 'font-thai'
+          },
+          willOpen: () => {
+            // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+            document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+            document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+            const confirmButton = document.querySelector('.swal2-confirm');
+            confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+            confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+            confirmButton.style.backgroundColor = '#3085d6'; // เปลี่ยนสีพื้นหลังปุ่ม (ถ้าต้องการ)
+            confirmButton.style.color = '#fff'; // เปลี่ยนสีข้อความในปุ่ม
+          }
         }).then(() => {
           router.push('/pos'); // เปลี่ยนเส้นทางไปยังหน้า pos
         });
@@ -109,7 +200,24 @@ const Login = () => {
           icon: 'error',
           title: 'ไม่สามารถเข้าสู่ระบบได้',
           confirmButtonText: 'ตกลง',
+          timer: 3000,  // ปิดอัตโนมัติใน 3 วินาที
+          timerProgressBar: true,
           text: data.error || 'Something went wrong!',
+          customClass: {
+            title: 'font-thai',
+            htmlContainer: 'font-thai',  // ใช้สำหรับข้อความ
+            confirmButton: 'font-thai'
+          },
+          willOpen: () => {
+            // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+            document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+            document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+            const confirmButton = document.querySelector('.swal2-confirm');
+            confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+            confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+            confirmButton.style.backgroundColor = '#3085d6'; // เปลี่ยนสีพื้นหลังปุ่ม (ถ้าต้องการ)
+            confirmButton.style.color = '#fff'; // เปลี่ยนสีข้อความในปุ่ม
+          }
         });
       }
     } catch (error) {
@@ -117,11 +225,56 @@ const Login = () => {
         icon: 'error',
         title: 'Error',
         text: 'An error occurred. Please try again.',
+        customClass: {
+          title: 'font-thai',
+          htmlContainer: 'font-thai',  // ใช้สำหรับข้อความ
+          confirmButton: 'font-thai'
+        },
+        willOpen: () => {
+          // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+          document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+          document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+          const confirmButton = document.querySelector('.swal2-confirm');
+          confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+          confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+          confirmButton.style.backgroundColor = '#3085d6'; // เปลี่ยนสีพื้นหลังปุ่ม (ถ้าต้องการ)
+          confirmButton.style.color = '#fff'; // เปลี่ยนสีข้อความในปุ่ม
+        }
       });
     } finally {
       setLoading(false); // ซ่อน loading
     }
   };
+
+
+  useEffect(() => {
+    // ตรวจสอบว่ากำลังทำงานในเบราว์เซอร์หรือไม่
+    if (typeof window !== 'undefined') {
+      let deferredPrompt;
+  
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const addBtn = document.querySelector('#add-button');
+        if (addBtn) {
+          addBtn.style.display = 'block';
+          addBtn.addEventListener('click', () => {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+              if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the A2HS prompt');
+              } else {
+                console.log('User dismissed the A2HS prompt');
+              }
+              deferredPrompt = null;
+            });
+          });
+        }
+      });
+    }
+  }, []);
+  
+
 
   const handleLastLoginClick = () => {
     const savedPassword = localStorage.getItem('password');
@@ -134,6 +287,21 @@ const Login = () => {
         icon: 'warning',
         title: 'ไม่พบรหัสผ่าน',
         text: 'กรุณากรอกรหัสผ่านด้วยตนเอง',
+        customClass: {
+          title: 'font-thai',
+          htmlContainer: 'font-thai',  // ใช้สำหรับข้อความ
+          confirmButton: 'font-thai'
+        },
+        willOpen: () => {
+          // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+          document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+          document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+          const confirmButton = document.querySelector('.swal2-confirm');
+          confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+          confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+          confirmButton.style.backgroundColor = '#3085d6'; // เปลี่ยนสีพื้นหลังปุ่ม (ถ้าต้องการ)
+          confirmButton.style.color = '#fff'; // เปลี่ยนสีข้อความในปุ่ม
+        }
       });
     }
   };
@@ -163,7 +331,7 @@ const Login = () => {
         </div>
       </header>
 
-      <main className="flex flex-grow justify-center items-center opacity-90 relative">
+      <main className="flex flex-grow justify-center items-center opacity-90 relative font-thai">
         {/* Toggle for showing last login */}
         <div className="absolute top-4 right-4">
   <label className="inline-flex items-center cursor-pointer">
@@ -190,7 +358,7 @@ const Login = () => {
         }`}
       ></div>
     </div>
-    <span className={`ml-2 text-sm transition-colors ${
+    <span className={`ml-2 text-2xl transition-colors ${
       darkMode ? 'text-gray-300' : 'text-gray-600'
     }`}>
       เข้าสู่ระบบอย่างรวดเร็ว
@@ -226,12 +394,9 @@ const Login = () => {
           className="w-20 h-20 mr-3"
         />
         <div>
-          <h3 className="font-semibold text-gray-700">Cookie Policy</h3>
-          <p className="text-sm text-gray-600 mt-4">
-            เว็บไซต์นี้ใช้คุกกี้เพื่อพัฒนาประสบการณ์การใช้งานของคุณ โปรดยอมรับคุกกี้เพื่อดำเนินการต่อ
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            คุกกี้จะไม่เก็บข้อมูลส่วนตัวที่สามารถระบุตัวตนของคุณได้ และจะไม่ส่งผลต่อความปลอดภัยของข้อมูลส่วนตัวของคุณ.{' '}
+          <h3 className="font-bold text-gray-700 text-2xl">Cookie Policy</h3>
+          <p className="text-xl font-semibold text-gray-600 mt-4">
+            เว็บไซต์นี้ใช้คุกกี้เพื่อพัฒนาประสบการณ์การใช้งานของคุณ โปรดยอมรับคุกกี้เพื่อดำเนินการต่อ.{' '}
             <button
               onClick={() => window.open('https://cookieinformation.com/th/what-is-a-cookie-policy/', '_blank')}
               className="text-blue-500 underline hover:text-blue-700"
@@ -239,11 +404,12 @@ const Login = () => {
               อ่านเพิ่มเติม
             </button>
           </p>
+
         </div>
       </div>
       <div className="mt-4 flex justify-end">
         <button
-          className="bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 focus:outline-none"
+          className="bg-blue-500 text-xl text-white font-bold py-2 px-4 rounded hover:bg-blue-700 focus:outline-none"
           onClick={handleCookieConsent}
         >
           ยอมรับ
@@ -263,67 +429,101 @@ const Login = () => {
           <div className="card-body">
             <h1 className={`typewriter-animation text-3xl font-bold text-center ${darkMode ? 'text-blue-300' : 'text-black'} mb-6`}></h1>
             <form onSubmit={handleSubmit}>
-              <div className="form-control relative mb-4">
+              <div className="form-control relative mb-4 text-xl">
                 <FaUser className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-blue-400' : 'text-gray-500'}`} />
                 <input
                   type="text"
                   placeholder=" "
-                  className={`peer input input-bordered w-full pl-10 py-3 rounded-md border-2 transition-all duration-200 ease-in-out 
+                  className={`text-2xl peer input input-bordered w-full pl-10 py-3 rounded-md border-2 transition-all duration-200 ease-in-out 
                     ${darkMode ? 'bg-gray-800 text-blue-200 border-gray-600 focus:border-blue-500' : 'bg-blue-100 text-black border-gray-300 focus:border-blue-500'}`}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
                 <label
-                  className={`absolute left-10 top-0 transform -translate-y-1/2 transition-all duration-200 ease-in-out pointer-events-none z-10 px-1
+                  className={`absolute left-10 top-[-12px] transform -translate-y-1/2 transition-all duration-200 ease-in-out pointer-events-none z-10 px-1
                     peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-gray-400 peer-placeholder-shown:-translate-y-1/2 
-                    peer-focus:top-[-17px] peer-focus:text-xs peer-focus:translate-y-0 
-                    ${username ? 'top-[-9px] text-xs' : ''} 
-                    ${darkMode ? 'text-blue-400 peer-focus:text-blue-400' : 'text-black peer-focus:text-black'}`}
+                    peer-focus:top-[-26px] peer-focus:text-xl peer-focus:translate-y-0 
+                    ${username ? 'top-[-12px] text-xl' : ''} 
+                    ${darkMode ? 'text-blue-400 peer-focus:text-blue-400 font-bold' : 'text-black peer-focus:text-black font-bold'}`}
                 >
                   ชื่อผู้ใช้งาน หรือ อีเมล
                 </label>
               </div>
 
-              <div className="form-control relative mb-4 mt-6">
+              <div className="form-control relative mb-4 mt-6 text-xl">
                 <FaLock className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-blue-400' : 'text-gray-500'}`} />
                 <input
                   type="password"
                   placeholder=" "
-                  className={`peer input input-bordered w-full pl-10 py-3 rounded-md border-2 transition-all duration-200 ease-in-out 
+                  className={`text-2xl peer input input-bordered w-full pl-10 py-3 rounded-md border-2 transition-all duration-200 ease-in-out 
                     ${darkMode ? 'bg-gray-800 text-blue-200 border-gray-600 focus:border-blue-500' : 'bg-blue-100 text-black border-gray-300 focus:border-blue-500'}`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
                 <label
-                  className={`absolute left-10 top-0 transform -translate-y-1/2 transition-all duration-200 ease-in-out pointer-events-none z-10 px-1
+                  className={`absolute left-10 top-[-12px] transform -translate-y-1/2 transition-all duration-200 ease-in-out pointer-events-none z-10 px-1
                     peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-gray-400 peer-placeholder-shown:-translate-y-1/2 
-                    peer-focus:top-[-16px] peer-focus:text-xs peer-focus:translate-y-0 
-                    ${password ? 'top-[-8px] text-xs' : ''} 
-                    ${darkMode ? 'text-blue-400 peer-focus:text-blue-400' : 'text-black peer-focus:text-black'}`}
+                    peer-focus:top-[-26px] peer-focus:text-xl peer-focus:translate-y-0 
+                    ${password ? 'top-[-12px] text-xl' : ''} 
+                    ${darkMode ? 'text-blue-400 peer-focus:text-blue-400 font-bold' : 'text-black peer-focus:text-black font-bold'}`}
                 >
                   รหัสผ่าน
                 </label>
               </div>
 
-              <div className="form-control mt-4">
-                <button
-                  className={`btn w-full py-2 flex items-center justify-center gap-2 ${
-                    darkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-500 hover:bg-blue-400 text-white'
-                  } transition-all duration-200 ease-in-out`}
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading ? 'ยืนยันการเข้าสู่ระบบ...' : <>
-                    <SlLogin className="text-lg" /> เข้าสู่ระบบ
-                  </>}
-                </button>
-              </div>
+              <div className="form-control mt-4 ">
+  {/* Regular login button */}
+  <button
+    className={`text-2xl btn w-full py-2 flex items-center justify-center gap-2 ${
+      darkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-500 hover:bg-blue-400 text-white'
+    } transition-all duration-200 ease-in-out`}
+    type="submit"
+    disabled={loading}
+  >
+    {loading ? 'ยืนยันการเข้าสู่ระบบ...' : <>
+      <SlLogin className="text-xl" /> เข้าสู่ระบบ
+    </>}
+  </button>
+  <p className="mt-4 text-center text-2xl">
+      <a
+        href="/get-pos"
+        className={`link ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-white hover:text-blue-300'}`}
+      >
+        รับการใช้งานระบบ
+      </a>
+    </p>
+  {/* Login with Face button */}
+  {/* <button
+    className={`mt-3 text-2xl btn w-full py-2 flex items-center justify-center gap-2 ${
+      darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-500 hover:bg-green-400 text-white'
+    } transition-all duration-200 ease-in-out`}
+    type="button"
+    // onClick={handleFaceLogin}
+  >
+    <LuScanFace className="text-2xl" /> เข้าสู่ระบบด้วยใบหน้า
+  </button> */}
+
+        {/* Upload Face Button */}
+        {/* <button
+        className={`mt-3 text-2xl btn w-full py-2 flex items-center justify-center gap-2 ${
+          darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-500 hover:bg-green-400 text-white'
+        } transition-all duration-200 ease-in-out`}
+        type="button"
+        // onClick={handleUpload}
+        disabled={loading}
+      >
+        <LuScanFace className="text-2xl" />
+        {loading ? 'Uploading...' : 'Upload Face'}
+      </button> */}
+</div>
+
+
 
               {showLastLogin && lastLogin && (
                 <>
-                  <h3 className='mt-4 text-sm font-semibold text-white-600'>
+                  <h3 className='mt-4 text-2xl font-semibold text-white-600 '>
                     Quick Login
                   </h3>
 
@@ -336,7 +536,7 @@ const Login = () => {
                     >
                       <div className="flex items-center space-x-2">
                         <FaUserCheck className={`text-xl ${darkMode ? 'text-blue-500' : 'text-blue-700'}`} />
-                        <span className={`text-sm font-medium ${darkMode ? 'text-blue-500' : 'text-blue-800'}`}>
+                        <span className={`text-xl font-medium ${darkMode ? 'text-blue-500' : 'text-blue-800'}`}>
                           <strong>{lastLogin}</strong>
                         </span>
                       </div>
@@ -349,7 +549,7 @@ const Login = () => {
                         onClick={handleDeleteLastLogin}
                         className="text-2xl cursor-pointer text-red-500 hover:text-red-700"
                       />
-                      <span className="absolute bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <span className="absolute bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-gray-800 text-white text-xl rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         ลบข้อมูลการล็อกอิน
                       </span>
                     </div>
@@ -368,13 +568,13 @@ const Login = () => {
             } ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-200 text-black'} w-[250px]`} 
           >
             {/* ข้อมูลเพิ่มเติม */}
-            <h2 className="text-lg font-bold text-center mb-4">
+            <h2 className="text-3xl font-bold text-center mb-4">
               งานนี้เป็นส่วนหนึ่งของโปรเจค HCI และ Workshop II
             </h2>
-            <h3 className="text-lg font-semibold text-center mb-4">
+            <h3 className="text-2xl font-semibold text-center mb-2">
               รายชื่อผู้จัดทำ
             </h3>
-            <p className="text-sm mt-3 leading-relaxed">
+            <p className="text-xl leading-relaxed">
               <strong>6430251179</strong> นายภูมินทร์ สุขสุวรรณ <br />
               <strong>6430251012</strong> นายกรวิทย์ ผิวฟัก <br />
               <strong>6430251161</strong> นายพัชรพล นิลทสุข <br />
@@ -385,10 +585,11 @@ const Login = () => {
         )}
       </main>
 
-      <footer className="footer footer-center bg-base-300 text-base-content p-4 mt-auto">
+      <footer className="font-thai footer footer-center bg-base-300 text-2xl p-4 mt-auto">
         <aside>
           <p>Copyright © {new Date().getFullYear()} - This project is part of the final year project for the course HCI and Workshop II.</p>
         </aside>
+
       </footer>
     </div>
   );

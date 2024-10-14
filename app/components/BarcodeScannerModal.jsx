@@ -8,14 +8,25 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
   const [videoDevices, setVideoDevices] = useState([]);
   const [scannedItems, setScannedItems] = useState([]);
   const [error, setError] = useState(null);
+  const [isProductFormOpen, setIsProductFormOpen] = useState(false); // สำหรับฟอร์มสร้างสินค้าใหม่
+  const [newProduct, setNewProduct] = useState({
+    product_code: '',
+    name: '',
+    price: '',
+    stock: '',
+    category_id: '',
+    image: null,
+  });
+  const [categories, setCategories] = useState([]); // เก็บข้อมูลหมวดหมู่สินค้า
+
   const codeReader = new BrowserMultiFormatReader();
 
+  const toggleProductFormModal = () => {
+    setIsProductFormOpen(!isProductFormOpen); // Toggle between open and closed
+  };
   const getSessionAndStoreData = () => {
     const sessionToken = localStorage.getItem('session'); 
     const storeId = localStorage.getItem('storeId');
-  
-    console.log('Session Token:', sessionToken);
-    console.log('Store ID:', storeId);
   
     if (!sessionToken || !storeId) {
       setError('ไม่พบ session หรือ store ID');
@@ -58,7 +69,6 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
       codeReader.decodeFromVideoDevice(deviceId, videoElement, async (result, err) => {
         if (result) {
           const barcodeText = result.getText();
-          
           const { sessionToken, storeId } = getSessionAndStoreData();
 
           if (!sessionToken || !storeId) {
@@ -66,7 +76,6 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
             return;
           }
 
-          // เคลียร์ข้อผิดพลาดก่อนการสแกนใหม่
           setError(null);
 
           try {
@@ -78,7 +87,12 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
 
             if (!response.ok) {
               if (response.status === 404) {
-                throw new Error('ไม่พบสินค้า');
+                // ไม่พบสินค้า เปิดฟอร์มสร้างสินค้าใหม่
+                setNewProduct((prevState) => ({
+                  ...prevState,
+                  product_code: barcodeText, // ใส่บาร์โค้ดที่สแกนได้ในฟอร์ม
+                }));
+                setIsProductFormOpen(true);
               } else {
                 throw new Error('เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
               }
@@ -112,6 +126,79 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
     setSelectedDeviceId(event.target.value);
   };
 
+  const handleNewProductChange = (e) => {
+    const { name, value } = e.target;
+    setNewProduct((prevState) => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const handleNewProductSubmit = async (e) => {
+    e.preventDefault();
+    const { sessionToken, storeId } = getSessionAndStoreData();
+  
+    const formData = new FormData();
+    formData.append('product_code', newProduct.product_code);
+    formData.append('name', newProduct.name);
+    formData.append('price', newProduct.price);
+    formData.append('stock_quantity', newProduct.stock);
+    formData.append('category_id', newProduct.category_id);
+    formData.append('store_id', storeId);
+  
+    if (newProduct.image) {
+      formData.append('img', newProduct.image); // ส่งรูปภาพไปยัง API
+    }
+  
+    try {
+      const response = await fetch('/api/products/scanner-create', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error('ไม่สามารถบันทึกสินค้าใหม่ได้');
+      }
+  
+      const createdProduct = await response.json();
+      setScannedItems([...scannedItems, { barcode: createdProduct.product_code, quantity: 1, name: createdProduct.name }]);
+      setIsProductFormOpen(false); // ปิดฟอร์มหลังจากบันทึกสำเร็จ
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+  
+
+  const fetchCategories = async () => {
+    const { sessionToken, storeId } = getSessionAndStoreData();
+
+    try {
+      const response = await fetch(`/api/categories?store_id=${storeId}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('ไม่สามารถดึงหมวดหมู่ได้');
+      }
+
+      const categoryData = await response.json();
+      setCategories(categoryData);
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (isProductFormOpen) {
+      fetchCategories();
+    }
+  }, [isProductFormOpen]);
+
   useEffect(() => {
     if (isBarcodeModalOpen && checkBrowserCompatibility()) {
       navigator.mediaDevices.getUserMedia({ video: true })
@@ -125,13 +212,17 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
     }
   }, [isBarcodeModalOpen]);
 
-  // รีเซ็ตข้อมูลเมื่อปิด Modal
-  useEffect(() => {
-    if (!isBarcodeModalOpen) {
-      setScannedItems([]);
-      setError(null);
-    }
-  }, [isBarcodeModalOpen]);
+// รีเซ็ตข้อมูลเมื่อปิด Modal
+useEffect(() => {
+  if (!isBarcodeModalOpen) {
+    // Stop the camera when the modal is closed
+    codeReader.reset();
+    setScannedItems([]);
+    setError(null);
+    setIsProductFormOpen(false);
+  }
+}, [isBarcodeModalOpen]);
+
 
   if (!isBarcodeModalOpen) return null;
 
@@ -142,7 +233,7 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
           <X className="h-6 w-6" />
         </button>
 
-        <h2 className={`text-xl font-bold mb-4 text-center ${darkMode ? 'text-white' : 'text-black'}`}>สแกนบาร์โค้ด</h2>
+        <h2 className={`text-2xl font-bold mb-4 text-center ${darkMode ? 'text-white' : 'text-black'}`}>สแกนบาร์โค้ด</h2>
 
         {error && <p className="text-red-500">{error}</p>}
         {videoDevices.length > 0 && (
@@ -189,6 +280,96 @@ const BarcodeScannerModal = ({ isBarcodeModalOpen, barcodeToggleModal, darkMode 
             </ul>
           )}
         </div>
+
+        {/* ฟอร์มสร้างสินค้าใหม่ */}
+        {isProductFormOpen && (
+  <div className={`fixed inset-0 z-50 flex items-center justify-center ${darkMode ? 'bg-black bg-opacity-80' : 'bg-black bg-opacity-50'}`}>
+    <div className={`p-6 rounded-lg shadow-lg w-full max-w-lg mx-4 sm:mx-auto relative ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}>
+      <button onClick={toggleProductFormModal} className={`absolute top-4 right-4 ${darkMode ? 'text-red-300 hover:text-red-500' : 'text-red-500 hover:text-red-700'}`}>
+        <X className="h-6 w-6" />
+      </button>
+
+      <form onSubmit={handleNewProductSubmit} className="mt-4">
+        <h2 className={`text-xl font-bold mb-4 text-center ${darkMode ? 'text-white' : 'text-black'}`}>เพิ่มสินค้าใหม่</h2>
+
+        <div className="mb-4">
+          <label className={`block mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>ชื่อสินค้า</label>
+          <input 
+            type="text" 
+            name="name" 
+            value={newProduct.name} 
+            onChange={handleNewProductChange} 
+            className={`text-xl input input-bordered w-full py-2 px-4 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className={`block mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>ราคา</label>
+          <input 
+            type="number" 
+            name="price" 
+            value={newProduct.price} 
+            onChange={handleNewProductChange} 
+            className={`text-xl input input-bordered w-full py-2 px-4 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className={`block mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>สต็อก</label>
+          <input 
+            type="number" 
+            name="stock" 
+            value={newProduct.stock} 
+            onChange={handleNewProductChange} 
+            className={`text-xl input input-bordered w-full py-2 px-4 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className={`block mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>หมวดหมู่</label>
+          <select 
+            name="category_id" 
+            value={newProduct.category_id} 
+            onChange={handleNewProductChange} 
+            className={`text-xl select select-bordered w-full py-2 px-4 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+            required
+          >
+            <option value="">เลือกหมวดหมู่</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label className={`block mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>รูปภาพสินค้า</label>
+          <input 
+            type="file" 
+            onChange={(e) => setNewProduct((prevState) => ({
+              ...prevState,
+              image: e.target.files[0],
+            }))}
+            className={`text-xl input input-bordered w-full py-2 px-4 ${darkMode ? 'bg-gray-800 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className={`text-2xl btn w-full py-3 ${darkMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+        >
+          บันทึกสินค้าใหม่
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+
+
       </div>
     </div>
   );

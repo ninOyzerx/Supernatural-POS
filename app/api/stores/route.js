@@ -31,7 +31,7 @@ export async function GET(request) {
 
     // ดึงข้อมูลร้านค้า รวมถึงที่อยู่ (store_address)
     const storeId = user.store_id;
-    const [storeResults] = await db.query('SELECT store_name, store_img, store_address FROM stores WHERE id = ?', [storeId]);
+    const [storeResults] = await db.query('SELECT store_name, store_img, store_address,store_phone_no FROM stores WHERE id = ?', [storeId]);
     const store = storeResults[0];
     if (!store) {
       return NextResponse.json({ message: 'Store not found' }, { status: 404 });
@@ -43,6 +43,7 @@ export async function GET(request) {
       store_name: store.store_name,
       store_img: store.store_img,
       store_address: store.store_address,  // เพิ่มข้อมูลที่อยู่
+      store_phone_no: store.store_phone_no
     });
     
   } catch (error) {

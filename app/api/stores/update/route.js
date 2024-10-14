@@ -9,7 +9,8 @@ export async function POST(request) {
     const formData = await request.formData();
     const storeName = formData.get('store_name');
     const storeAddress = formData.get('store_address'); // รับข้อมูลที่อยู่
-    const imageFile = formData.get('store_img'); // รูปภาพ
+    const storePhoneNo = formData.get('store_phone_no'); // รับข้อมูลเบอร์โทร
+    const imageFile = formData.get('store_img'); // รับรูปภาพ
 
     // ตรวจสอบค่า session token จาก headers
     const authHeader = request.headers.get('authorization');
@@ -52,6 +53,11 @@ export async function POST(request) {
       await db.query('UPDATE stores SET store_address = ? WHERE id = ?', [storeAddress, storeId]);
     }
 
+    // อัปเดตเบอร์โทรศัพท์ร้านค้า
+    if (storePhoneNo) {
+      await db.query('UPDATE stores SET store_phone_no = ? WHERE id = ?', [storePhoneNo, storeId]);
+    }
+
     // หากมีไฟล์รูปภาพ ให้ทำการอัปเดต
     let imageUrl = null;
     if (imageFile) {
@@ -74,6 +80,7 @@ export async function POST(request) {
       store_name: storeName,
       store_img: imageUrl || null,
       store_address: storeAddress ? JSON.parse(storeAddress) : null, // ส่งข้อมูลที่อยู่กลับไป
+      store_phone_no: storePhoneNo || null, // ส่งข้อมูลเบอร์โทรกลับไป
     });
 
   } catch (error) {

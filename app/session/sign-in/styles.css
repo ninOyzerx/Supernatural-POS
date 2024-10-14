@@ -17,6 +17,7 @@
     white-space: nowrap;
     overflow: hidden;
     display: inline-block;
+    font-size: xxx-large;
   }
   
   @keyframes blink {

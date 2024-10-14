@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { IoReceiptSharp } from "react-icons/io5";
+
 
 
 const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode }) => {
@@ -10,10 +12,16 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
   const [district, setDistrict] = useState(''); // ตำบล
   const [amphoe, setAmphoe] = useState(''); // อำเภอ
   const [address, setAddress] = useState(''); // ที่อยู่หลัก
+  const [phoneNo, setPhoneNo] = useState(''); // สร้าง state สำหรับเบอร์โทร
   const [storeImg, setStoreImg] = useState('');
   const [previewImg, setPreviewImg] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [isImageFullScreen, setIsImageFullScreen] = useState(false); 
+  const [showStoreImage, setShowStoreImage] = useState(true);
+const [showAddress, setShowAddress] = useState(true);
+const [showPhoneNumber, setShowPhoneNumber] = useState(true);
+
+
 
   useEffect(() => {
     if (isVisible && storeId) {
@@ -29,12 +37,13 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
           Authorization: `Bearer ${sessionToken}`,
         },
       });
-
+  
       const data = await response.json();
       setStoreName(data.store_name || '');
       setStoreImg(data.store_img || '');
       setPreviewImg(data.store_img || null);
-
+      setPhoneNo(data.store_phone_no || ''); // ดึงข้อมูลเบอร์โทร
+  
       // ดึงข้อมูลที่อยู่จาก store_address ที่เก็บเป็น JSON
       if (data.store_address) {
         const addressData = JSON.parse(data.store_address);
@@ -48,6 +57,8 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
       console.error('Error fetching store details:', error);
     }
   };
+  
+  
 
   const handleUpload = (e) => {
     const file = e.target.files[0];
@@ -85,6 +96,16 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
       setDistrict('');
     }
   };
+
+  useEffect(() => {
+    const savedSettings = JSON.parse(localStorage.getItem('receiptSettings'));
+    
+    if (savedSettings) {
+      setShowStoreImage(savedSettings.showStoreImage);
+      setShowAddress(savedSettings.showAddress);
+      setShowPhoneNumber(savedSettings.showPhoneNumber);
+    }
+  }, []);
   
 
   const handleSave = async () => {
@@ -94,6 +115,16 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
       return;
     }
   
+    const settings = {
+      showStoreImage,
+      showAddress,
+      showPhoneNumber,
+    };
+    
+    // Store the settings in localStorage for later use
+    localStorage.setItem('receiptSettings', JSON.stringify(settings));
+  
+    // Construct the store address object
     const storeAddress = {
       postal_code: postalCode,
       province: province,
@@ -103,8 +134,20 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
     };
   
     const formData = new FormData();
-    formData.append('store_name', storeName);
-    formData.append('store_address', JSON.stringify(storeAddress));
+  
+    // Append other form fields
+    if (storeName && storeName.trim() !== '') {
+      formData.append('store_name', storeName);
+    }
+  
+    if (storeAddress.address && storeAddress.address.trim() !== '') {
+      formData.append('store_address', JSON.stringify(storeAddress));
+    }
+  
+    if (phoneNo && phoneNo.trim() !== '') {
+      formData.append('store_phone_no', phoneNo);
+    }
+  
     if (imageFile) {
       formData.append('store_img', imageFile);
     }
@@ -120,36 +163,77 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
   
       if (response.ok) {
         const updatedData = await response.json();
-        onUpdateStore(updatedData);
+        onUpdateStore(updatedData); // Trigger parent update with new store data and settings
+  
+
+        // Close modal and show success message
         onClose();
-        
-        // แสดง Swal เมื่อบันทึกข้อมูลสำเร็จ
+
         Swal.fire({
           title: 'สำเร็จ!',
           text: 'เปลี่ยนแปลงข้อมูลสำเร็จ',
           icon: 'success',
           confirmButtonText: 'ตกลง',
+          customClass: {
+            title: 'font-thai',
+            htmlContainer: 'font-thai',
+            confirmButton: 'font-thai',
+          },
+          willOpen: () => {
+            document.querySelector('.swal2-title').style.fontSize = '35px';
+            document.querySelector('.swal2-html-container').style.fontSize = '25px';
+            const confirmButton = document.querySelector('.swal2-confirm');
+            confirmButton.style.fontSize = '24px';
+            confirmButton.style.padding = '6px 24px';
+            confirmButton.style.backgroundColor = '#3085d6';
+            confirmButton.style.color = '#fff';
+          },
+        }).then(() => {
+          window.location.reload(); // Optional page reload
         });
       } else {
         console.error('Error updating store');
       }
     } catch (error) {
       console.error('Error:', error);
-      
-      // แสดง Swal เมื่อเกิดข้อผิดพลาด
       Swal.fire({
         title: 'เกิดข้อผิดพลาด!',
-        text: 'ไม่สามารถบันทึกข้อมูลได้',
+        text: 'ไม่สามารถเปลี่ยนแปลงข้อมูลได้',
         icon: 'error',
         confirmButtonText: 'ตกลง',
+        customClass: {
+          title: 'font-thai',
+          htmlContainer: 'font-thai',
+          confirmButton: 'font-thai',
+        },
+        willOpen: () => {
+          document.querySelector('.swal2-title').style.fontSize = '35px';
+          document.querySelector('.swal2-html-container').style.fontSize = '25px';
+          const confirmButton = document.querySelector('.swal2-confirm');
+          confirmButton.style.fontSize = '24px';
+          confirmButton.style.padding = '6px 24px';
+          confirmButton.style.backgroundColor = '#3085d6';
+          confirmButton.style.color = '#fff';
+        },
       });
     }
   };
   
 
+  
+  
+  
+
   const toggleFullScreenImage = () => {
     setIsImageFullScreen(!isImageFullScreen);
   };
+
+  const [showReceiptSettings, setShowReceiptSettings] = useState(false);
+
+const closeReceiptSettingsModal = () => {
+  setShowReceiptSettings(false);
+};
+
 
   if (!isVisible) return null;
 
@@ -166,7 +250,85 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
           <X className="w-6 h-6" />
         </button>
     
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-4 animate-fadeIn">การตั้งค่าร้านค้า</h2>
+        <h2 className="text-center text-2xl sm:text-3xl md:text-4xl font-semibold mb-4 animate-fadeIn">การตั้งค่าร้านค้า
+
+        <div className="col-span-2 mb-[-25px]">
+        <div
+  className={`inline-block p-2 rounded-md cursor-pointer transition-all transform hover:scale-105 hover:bg-opacity-80
+    ${darkMode ? ' text-white hover:bg-blue-600' : ' text-black hover:bg-blue-600'}`}
+  onClick={() => setShowReceiptSettings(true)} // Open receipt settings modal
+>
+  <IoReceiptSharp className="w-7 h-7" /> {/* Icon that is clickable */}
+</div>
+
+</div>
+
+
+        </h2>
+
+            {/* Receipt Settings Modal */}
+    {showReceiptSettings && (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 transition-opacity duration-300 ease-out">
+  <div className={`p-4 rounded-lg shadow-lg w-full max-w-xs sm:max-w-sm lg:max-w-md relative ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}>
+          <button
+            onClick={closeReceiptSettingsModal}
+            className={`absolute top-3 right-3 ${darkMode ? 'text-gray-300 hover:text-gray-500' : 'text-gray-500 hover:text-gray-700'} transition-transform transform hover:scale-110`}
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <h2 className="text-center text-2xl sm:text-3xl md:text-4xl font-semibold mb-4 animate-fadeIn">ตั้งค่าใบเสร็จ</h2>
+
+          <div className="grid grid-cols-2 gap-4">
+  <div className="col-span-2">
+    <div className="flex items-center justify-between space-x-4">
+      <label className={`text-2xl font-medium animate-fadeIn ${darkMode ? 'text-white' : 'text-black'}`}>
+        แสดงรูปภาพร้านค้า
+      </label>
+      <input
+        type="checkbox"
+        checked={showStoreImage}
+        onChange={(e) => setShowStoreImage(e.target.checked)}
+        className={`checkbox checkbox-sm ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'}`}
+      />
+    </div>
+  </div>
+
+  <div className="col-span-2">
+    <div className="flex items-center justify-between space-x-4">
+      <label className={`text-2xl font-medium animate-fadeIn ${darkMode ? 'text-white' : 'text-black'}`}>
+        แสดงที่อยู่ร้านค้า
+      </label>
+      <input
+        type="checkbox"
+        checked={showAddress}
+        onChange={(e) => setShowAddress(e.target.checked)}
+        className={`checkbox checkbox-sm ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'}`}
+      />
+    </div>
+  </div>
+
+  <div className="col-span-2">
+    <div className="flex items-center justify-between space-x-4">
+      <label className={`text-2xl font-medium animate-fadeIn ${darkMode ? 'text-white' : 'text-black'}`}>
+        แสดงเบอร์โทรร้านค้า
+      </label>
+      <input
+        type="checkbox"
+        checked={showPhoneNumber}
+        onChange={(e) => setShowPhoneNumber(e.target.checked)}
+        className={`checkbox checkbox-sm ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'}`}
+      />
+    </div>
+  </div>
+</div>
+
+
+        </div>
+        </div>
+    )}
+
+        
     
         <div className="grid grid-cols-2 gap-4">
           {/* Input สำหรับชื่อร้านค้า */}
@@ -193,6 +355,17 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
             required
             />
           </div>
+
+          <div className="col-span-1">
+            <label className="text-2xl font-medium animate-fadeIn">อำเภอ</label>
+            <input
+              type="text"
+              value={amphoe}
+              readOnly
+              className={`text-xl input input-bordered w-full px-4 py-2 rounded-md 
+                ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-200 text-black border-gray-300'}`}
+            />
+          </div>
     
           {/* แสดงจังหวัดและอำเภอ */}
           <div className="col-span-1">
@@ -205,16 +378,19 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
                 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-200 text-black border-gray-300'}`}
             />
           </div>
+          {/* Input สำหรับเบอร์โทร */}
           <div className="col-span-1">
-            <label className="text-2xl font-medium animate-fadeIn">อำเภอ</label>
-            <input
-              type="text"
-              value={amphoe}
-              readOnly
-              className={`text-xl input input-bordered w-full px-4 py-2 rounded-md 
-                ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-200 text-black border-gray-300'}`}
-            />
-          </div>
+  <label className="text-2xl font-medium animate-fadeIn">เบอร์โทรศัพท์</label>
+  <input
+    type="text"
+    value={phoneNo}
+    onChange={(e) => setPhoneNo(e.target.value)}
+    className={`text-xl input input-bordered w-full px-4 py-2 rounded-md transition-colors focus:ring-2 focus:ring-indigo-500 
+      ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-blue-500' : 'bg-gray-200 text-black border-gray-300 focus:border-blue-500'}`}
+  />
+</div>
+
+
     
           {/* Input สำหรับที่อยู่หลัก */}
           <div className="col-span-2">
@@ -227,17 +403,19 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
                 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:border-blue-500' : 'bg-gray-200 text-black border-gray-300 focus:border-blue-500'}`}
             />
           </div>
+          
     
           {/* การอัปโหลดโลโก้ */}
           <div className="col-span-2 flex items-center justify-between">
-            <div className="w-1/2 pr-4">
+            <div className=" pr-4">
               <label className="text-lg sm:text-xl font-medium animate-fadeIn">อัพโหลดรูปภาพร้านค้า</label>
               <input 
-                type="file" 
-                onChange={handleUpload} 
-                className={`file-input w-full px-4 py-2 border rounded-md transition-colors duration-300 
-                  ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-200 text-black border-gray-300'}`} 
-              />
+  type="file" 
+  onChange={handleUpload} 
+  className={`file-input  w-[350px] max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl px-4 py-2 border rounded-md transition-colors duration-300 
+    ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-200 text-black border-gray-300'}`} 
+/>
+
             </div>
   
             {/* แสดงรูปภาพร้านค้า */}
@@ -251,7 +429,45 @@ const SettingsModal = ({ isVisible, onClose, storeId, onUpdateStore, darkMode })
                 />
               </div>
             )}
+
+
           </div>
+          {/* <div className="col-span-2">
+  <div className="flex items-center space-x-2">
+    <label className="text-lg sm:text-xl font-medium animate-fadeIn">แสดงรูปภาพร้านค้า</label>
+    <input
+      type="checkbox"
+      checked={showStoreImage}
+      onChange={(e) => setShowStoreImage(e.target.checked)}
+      className="ml-2 checkbox checkbox-xs"
+    />
+  </div>
+</div>
+
+<div className="col-span-2">
+  <div className="flex items-center space-x-2">
+    <label className="text-lg sm:text-xl font-medium animate-fadeIn">แสดงที่อยู่ร้านค้า</label>
+    <input
+      type="checkbox"
+      checked={showAddress}
+      onChange={(e) => setShowAddress(e.target.checked)}
+      className="ml-2 checkbox checkbox-xs"
+    />
+  </div>
+</div>
+
+<div className="col-span-2">
+  <div className="flex items-center space-x-2">
+    <label className="text-lg sm:text-xl font-medium animate-fadeIn">แสดงเบอร์โทรร้านค้า</label>
+    <input
+      type="checkbox"
+      checked={showPhoneNumber}
+      onChange={(e) => setShowPhoneNumber(e.target.checked)}
+      className="ml-2 checkbox checkbox-xs"
+    />
+  </div>
+</div> */}
+
         </div>
     
         {/* ปุ่มบันทึกและยกเลิก */}

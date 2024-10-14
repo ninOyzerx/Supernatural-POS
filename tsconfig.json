@@ -27,7 +27,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-, "app/dashboard/layout.jsx", "app/dashboard/loading.jsx", "app/dashboard/layout/sidebar/MenuItems.jsx", "app/dashboard/layout/sidebar/Sidebar.jsx", "app/dashboard/layout/sidebar/MenuItems.jsx"  ],
+, "app/pos/dashboard/layout.jsx", "app/pos/dashboard/loading.jsx", "app/pos/dashboard/layout/sidebar/MenuItems.jsx", "app/pos/dashboard/layout/sidebar/Sidebar.jsx", "app/pos/dashboard/layout/sidebar/MenuItems.jsx"  ],
   "exclude": [
     "node_modules"
   ]

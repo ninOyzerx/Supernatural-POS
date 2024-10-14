@@ -2,30 +2,30 @@ import db from '../../lib/db';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
-  const { amount, paymentMethod, change, transactionId, items } = await request.json();
+  const { amount, paymentMethod, change, transactionId, items, storeId } = await request.json(); // Add storeId to the destructured payload
 
   // Check for missing fields
-  if (!amount || !paymentMethod || change === undefined || !transactionId || !items || !Array.isArray(items)) {
+  if (!amount || !paymentMethod || change === undefined || !transactionId || !items || !Array.isArray(items) || !storeId) {
     return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
   }
 
-  const connection = await db.getConnection(); // เรียก connection เพื่อใช้ transaction
+  const connection = await db.getConnection(); // Get connection for transaction
   try {
-    // เริ่ม transaction
+    // Begin transaction
     await connection.beginTransaction();
 
-    const updatedStockQuantities = []; // สร้างอาร์เรย์สำหรับเก็บ stock_quantity ที่อัปเดต
+    const updatedStockQuantities = []; // Array to hold updated stock quantities
 
-    // วนลูปลดจำนวนสินค้าในตาราง products
+    // Loop through items to update stock
     for (const item of items) {
       const { productId, quantity } = item;
 
-      // ตรวจสอบว่า productId และ quantity มีค่าหรือไม่
+      // Check that productId and quantity are valid
       if (!productId || !quantity) {
         throw new Error(`ข้อมูลสินค้าไม่ถูกต้อง: ${JSON.stringify(item)}`);
       }
 
-      // ตรวจสอบ stock_quantity ปัจจุบันและชื่อสินค้าของสินค้า
+      // Check current stock quantity and product name
       const [stockCheckResult] = await connection.execute(
         `SELECT stock_quantity, product_name FROM products WHERE id = ?`,
         [productId]
@@ -38,34 +38,34 @@ export async function POST(request) {
       const currentStock = stockCheckResult[0].stock_quantity;
       const productName = stockCheckResult[0].product_name;
 
-      // ถ้าสต๊อกหมด ห้ามทำการชำระเงิน และแจ้งเตือนชื่อสินค้า
+      // If stock is out, disallow payment and notify product name
       if (currentStock <= 0) {
         throw new Error(`สินค้า "${productName}" หมดสต็อก`);
       }
 
-      // ถ้าสต๊อกไม่เพียงพอ ห้ามทำการชำระเงิน
+      // If stock is insufficient, disallow payment
       if (currentStock < quantity) {
         throw new Error(`สินค้า "${productName}" มีสต็อกไม่เพียงพอ เหลือเพียง ${currentStock} ชิ้น`);
       }
 
-      // อัปเดต stock_quantity ในตาราง products
+      // Update stock quantity in products table
       const [updateResult] = await connection.execute(
         `UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?`,
         [quantity, productId]
       );
 
-      // ตรวจสอบว่ามีการอัปเดต stock หรือไม่
+      // Check if stock was updated
       if (updateResult.affectedRows === 0) {
         throw new Error(`ไม่สามารถอัปเดตสต็อกของสินค้า "${productName}" ได้`);
       }
 
-      // ดึง stock_quantity หลังจากอัปเดตแล้ว
+      // Retrieve remaining stock after update
       const [stockResult] = await connection.execute(
         `SELECT stock_quantity FROM products WHERE id = ?`,
         [productId]
       );
 
-      // เพิ่มค่า stock_quantity ที่เหลืออยู่ลงในอาร์เรย์
+      // Add remaining stock to array
       if (stockResult.length > 0) {
         updatedStockQuantities.push({
           productId: productId,
@@ -75,17 +75,17 @@ export async function POST(request) {
       }
     }
 
-    // คำนวณ remain_quantity จาก updatedStockQuantities
+    // Calculate remain_quantity from updatedStockQuantities
     const totalRemainingStock = updatedStockQuantities.reduce((total, item) => total + item.remainingStock, 0);
 
-    // บันทึกข้อมูลการชำระเงิน พร้อมกับค่าคงเหลือของ remain_quantity
+    // Insert payment data including storeId
     const [result] = await connection.execute(
-      `INSERT INTO payments (paid_amount, payment_method, \`change\`, transaction_id, items, remain_quantity, created_at) 
-      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [amount, paymentMethod, change, transactionId, JSON.stringify(items), totalRemainingStock]
+      `INSERT INTO payments (paid_amount, payment_method, \`change\`, transaction_id, items, remain_quantity, store_id, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [amount, paymentMethod, change, transactionId, JSON.stringify(items), totalRemainingStock, storeId]
     );
 
-    // commit transaction
+    // Commit transaction
     await connection.commit();
 
     return NextResponse.json({
@@ -95,7 +95,7 @@ export async function POST(request) {
     }, { status: 201 });
 
   } catch (error) {
-    // rollback transaction หากมีข้อผิดพลาด
+    // Rollback transaction if there's an error
     await connection.rollback();
     console.error('Error recording payment and updating inventory:', error.message);
     return NextResponse.json({ error: error.message }, { status: 400 });

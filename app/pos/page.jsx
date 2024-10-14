@@ -11,11 +11,16 @@ import { TicketPercent, ListFilter, ArrowDownNarrowWide, ArrowUpNarrowWide, Cloc
 import { RxReload } from "react-icons/rx";
 import { AiFillEdit , AiOutlineBarcode} from "react-icons/ai";
 import { FaTrash , FaArrowTrendDown} from "react-icons/fa6";
-import { Settings } from 'lucide-react'; 
+import { Settings , LayoutDashboard , Play ,ReceiptText } from 'lucide-react'; 
 import SettingsModal from '../components/store/settingsModal'
+import { IoMdPersonAdd } from "react-icons/io";
+import { LuPackageX } from "react-icons/lu";
+import LoadingStore from './loadingStoreDetails';
 
 
-import BarcodeScannerModal from '../components/BarcodeScannerModal'; 
+import BarcodeScannerModal from '../components/barcodeScannerModal'; 
+
+import BarcodeScanProduct from '../components/barcodeScanProduct'; 
 
 
 
@@ -27,7 +32,12 @@ export default function Component() {
   const router = useRouter();
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
-  const [selectedProductName, setSelectedProductName] = useState(''); 
+  const [selectedProductName, setSelectedProductName] = useState('');
+
+  const [outOfStockToggle, setOutOfStockToggle] = useState(false); 
+  const [progress, setProgress] = useState(0); 
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false); 
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [filterProducts, setFilterProducts] = useState(products);
@@ -62,7 +72,48 @@ export default function Component() {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
 
   const [isStoreSettingModalVisible, setIsStoreSettingModalVisible] = useState(false);
-  const [storeDetails, setStoreDetails] = useState({ store_name: '', store_img: '' });
+  const [storeData, setStoreData] = useState({
+    store_name: '', // ชื่อร้านค้า
+    store_address: '', // ที่อยู่ร้านค้า (ในรูป JSON string)
+    store_phone_no: '', // เบอร์โทรศัพท์ร้านค้า
+    store_img: '', // รูปภาพร้านค้า
+  });
+  const [pausedProducts, setPausedProducts] = useState([]);
+
+  const handlePauseProducts = () => {
+    if (selectedProducts.length > 0) {
+      setPausedProducts([...pausedProducts, ...selectedProducts]);
+      // เคลียร์รายการสินค้าใน selectedProducts หลังจากพักสินค้า
+      setSelectedProducts([]);
+    }
+  };
+
+  const handleLogin = async () => {
+    // Your login logic...
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+        setIsLoggedIn(true); // Set logged-in status
+    } else {
+        console.error('Login failed:', await response.json());
+    }
+};
+
+  // ฟังก์ชันสำหรับนำสินค้าที่ถูกพักกลับมาใช้งาน
+  const handleContinueOrder = (product) => {
+    // เพิ่มสินค้าที่ถูกพักกลับเข้าสู่รายการ selectedProducts
+    setSelectedProducts([...selectedProducts, product]);
+    // นำสินค้านั้นออกจาก pausedProducts
+    setPausedProducts(pausedProducts.filter((p) => p.product_code !== product.product_code));
+  };
+
 
 
 
@@ -70,17 +121,55 @@ export default function Component() {
     setIsBarcodeModalOpen(!isBarcodeModalOpen);
   };
 
+// Function to toggle the barcode modal
+const toggleBarcodeModal = () => {
+  setIsBarcodeModalOpen(!isBarcodeModalOpen);
+};
 
-  // ฟังก์ชันจัดการเมื่อสแกนได้บาร์โค้ด
-  const handleBarcodeDetected = (err, result) => {
-    if (result) {
-      setBarcodeData(result.text); // เก็บข้อมูลบาร์โค้ดที่สแกนได้
-      setIsModalOpen(false); // ปิด modal หลังจากสแกนสำเร็จ
+const [customers, setCustomers] = useState([]);
+const [selectedCustomer, setSelectedCustomer] = useState("walkin");
+
+useEffect(() => {
+  // Fetch customers from the API with session token and store_id
+  const fetchCustomers = async () => {
+    try {
+      const sessionToken = localStorage.getItem('session'); // Get session token
+      const storeId = localStorage.getItem('storeId'); // Get store_id
+
+      if (!sessionToken || !storeId) {
+        console.error('Session token or store ID not found');
+        return;
+      }
+
+      const response = await fetch(`/api/customers?store_id=${storeId}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}` // Include the session token in the headers
+        }
+      });
+
+      const data = await response.json();
+      
+      // If the data is an array, set the customers list
+      if (Array.isArray(data)) {
+        setCustomers(data); // Store the entire array of customers
+      } else {
+        console.error('Unexpected data structure:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
     }
   };
 
+  fetchCustomers();
+}, []);
 
-  
+const handleSelectChange = (e) => {
+  setSelectedCustomer(e.target.value);
+};
+
+
+
+
 
   const sortDropdownRef = useRef(null); // ใช้ ref เพื่ออ้างอิงถึง dropdown
 
@@ -196,6 +285,9 @@ export default function Component() {
     fetchProductsByCategory(selectedCategory || '');
   };
   
+  const handleSortOption = (option) => {
+    setSortOption(option); // เปลี่ยนค่า sortOption เมื่อผู้ใช้เลือกตัวเลือกการกรองหรือเรียงลำดับ
+  };
   
   useEffect(() => {
     let tempProducts = [...products];
@@ -204,6 +296,11 @@ export default function Component() {
     if (selectedCategory !== null) {
       tempProducts = tempProducts.filter(product => product.category_id === selectedCategory);
     }
+
+    // Filter out of stock products if sortOption is 'out-of-stock'
+    if (sortOption === 'out-of-stock') {
+      tempProducts = tempProducts.filter(product => product.stock_quantity === 0);
+    } 
 
     // Sort products based on selected sort option
     if (sortOption === 'latest') {
@@ -218,15 +315,11 @@ export default function Component() {
     setFilterProducts(tempProducts);
   }, [selectedCategory, sortOption, products]);
 
+
   const handleDropdownToggle = () => {
     setFilterDropdownOpen(!filterDropdownOpen); // Toggle open/close
   };
 
-
-  const handleSortOption = (option) => {
-    setSortOption(option);
-    setFilterDropdownOpen(false); 
-  };
 
 
 
@@ -256,35 +349,64 @@ export default function Component() {
   useEffect(() => {
     const fetchStoreDetails = async () => {
       const sessionToken = localStorage.getItem('session');
-      
-      if (!sessionToken) {
-        router.push('/session/sign-in'); // ถ้าไม่มี sessionToken ให้พาผู้ใช้ไปที่หน้า sign-in
+      const storeId = localStorage.getItem('storeId'); 
+
+      if (!sessionToken || !storeId) {
+        Swal.fire({
+          icon: 'error',
+          title: 'ไม่พบข้อมูลการเข้าสู่ระบบ',
+          text: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        }).then(() => {
+          router.push('/session/sign-in'); 
+        });
         return;
       }
   
       try {
-        const response = await fetch('/api/stores', {
+        const response = await fetch(`/api/stores`, {
           headers: {
-            'Authorization': `Bearer ${sessionToken}` // ใช้ sessionToken จาก localStorage
-          }
+            'Authorization': `Bearer ${sessionToken}`, 
+          },
         });
   
         if (!response.ok) {
-          console.error('ไม่สามารถดึง ID ร้านค้า และ ชื่อร้านค้า ได้');
+          console.error('ไม่สามารถดึงข้อมูลร้านค้าได้');
+          Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: 'ไม่สามารถดึงข้อมูลร้านค้าได้',
+            timer: 3000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+          });
           return;
         }
   
         const data = await response.json();
-        setStoreName(data.store_name); // ตั้งค่า store_name ที่ได้จาก API
-        setStoreDetails(data); // อัปเดตค่า storeDetails ทั้งหมด
+        setStoreName(data.store_name); // Set store_name from API data
+        setStoreData(data); // Update storeData
+        setLoading(false); // Turn off loading after data is fetched
       } catch (error) {
         console.error('Error fetching store details:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'เกิดข้อผิดพลาด',
+          text: 'ไม่สามารถดึงข้อมูลร้านค้าได้',
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        });
+        setLoading(false); // Turn off loading in case of error
       }
     };
-  
-    fetchStoreDetails(); // เรียกใช้ทันทีเมื่อ component โหลด
-  }, []); // ลบ storeId ออกจาก dependency
-  
+
+    fetchStoreDetails(); // Fetch store details on component load
+  }, [router]);
+
+
 
 
   const totalItems = selectedProducts.reduce((acc, product) => acc + product.quantity, 0);
@@ -295,9 +417,24 @@ export default function Component() {
     // แจ้งเตือนผู้ใช้ว่าสินค้าหมดสต็อก
     Swal.fire({
       title: 'สินค้าหมด!',
-      text: `สินค้า "${product.product_name}" หมดสต็อก ไม่สามารถเพิ่มสินค้าได้`,
+      text: `สินค้า "${product.product_name}" หมดสต็อก`,
       icon: 'error',
-      confirmButtonText: 'ตกลง'
+      confirmButtonText: 'ตกลง',
+      customClass: {
+        title: 'font-thai',
+        htmlContainer: 'font-thai',  // ใช้สำหรับข้อความ
+        confirmButton: 'font-thai'
+      },
+      willOpen: () => {
+        // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+        document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+        document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+        const confirmButton = document.querySelector('.swal2-confirm');
+        confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+        confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+        confirmButton.style.backgroundColor = '#3085d6'; // เปลี่ยนสีพื้นหลังปุ่ม (ถ้าต้องการ)
+        confirmButton.style.color = '#fff'; // เปลี่ยนสีข้อความในปุ่ม
+      }
     });
     return; // หยุดการทำงานหากสินค้าหมด
   }
@@ -379,7 +516,6 @@ export default function Component() {
 
   const handleQuickAmount = (amt) => setAmount(amt);
 
-  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const handlePaymentClick = () => {
     setIsModalOpen(true);
@@ -492,19 +628,19 @@ export default function Component() {
 
   useEffect(() => {
     const validateSession = async () => {
-      const sessionToken = localStorage.getItem('session'); // ดึง sessionToken จาก localStorage
+      const sessionToken = localStorage.getItem('session'); 
       if (!sessionToken) {
         router.push('/session/sign-in');
         return;
       }
-
+  
       try {
         const response = await fetch('/api/validate-session', {
           headers: {
             'Authorization': `Bearer ${sessionToken}`
           }
         });
-
+  
         if (response.ok) {
           const data = await response.json();
           setStoreId(data.storeId);
@@ -513,25 +649,39 @@ export default function Component() {
           Swal.fire({
             icon: 'error',
             title: 'Session Error',
-            text: errorData.message || 'Invalid session token',
+            text: errorData.message || 'Session Token ไม่ถูกต้อง',
             confirmButtonText: 'ตกลง',
-          }).then(() => router.push('/session/sign-in'));
+            timer: 3000, // ให้ Swal โชว์ 2 วินาที
+            timerProgressBar: true,
+            willClose: () => {
+              // หลังจาก Swal ปิดให้ไปที่หน้า sign-in
+              router.push('/session/sign-in');
+            }
+          });
         }
       } catch (error) {
-        console.error('Error validating session:', error);
+        console.error('เกิดข้อผิดพลาดในการตรวจสอบ Session :', error);
         Swal.fire({
           icon: 'error',
           title: 'Oops...',
-          text: `Failed to validate session: ${error.message}`,
+          text: `ไม่สามารถตรวจสอบ Session ได้ : ${error.message}`,
           confirmButtonText: 'ตกลง',
-        }).then(() => router.push('/session/sign-in'));
+          timer: 3000, // ให้ Swal โชว์ 2 วินาที
+          timerProgressBar: true,
+          willClose: () => {
+            // หลังจาก Swal ปิดให้ไปที่หน้า sign-in
+            router.push('/session/sign-in');
+          }
+        });
       } finally {
         setLoading(false);
       }
     };
-
+  
     validateSession();
   }, [router]);
+  
+  
 
 
   // Fetch products by selected category
@@ -606,8 +756,9 @@ export default function Component() {
 
 
   const handleDashboardClick = () => {
-    router.push('../dashboard');
-  };
+    router.push('/pos/dashboard'); // Navigate to the /dashboard page
+};
+
 
   const handleAddProduct = async (product) => {
     const { value: quantity } = await Swal.fire({
@@ -683,12 +834,37 @@ export default function Component() {
       text: 'คุณต้องการออกจากระบบจริงๆ หรือไม่?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#6c757d', // Darker gray color
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'ใช่, ออกจากระบบ!',
+      confirmButtonColor: '#d33', // สีแดงเข้มสำหรับปุ่มยืนยัน
+      cancelButtonColor: '#3085d6', // สีฟ้าสำหรับปุ่มยกเลิก
+      confirmButtonText: 'ออกจากระบบ',
       cancelButtonText: 'ยกเลิก',
+      customClass: {
+        title: 'font-thai',
+        htmlContainer: 'font-thai',
+        confirmButton: 'font-thai',
+        cancelButton: 'font-thai'
+      },
+      willOpen: () => {
+        // ปรับขนาดฟอนต์และสไตล์ต่างๆ ในที่นี้โดยใช้ inline style
+        document.querySelector('.swal2-title').style.fontSize = '35px'; // ขนาดฟอนต์ของ title
+        document.querySelector('.swal2-html-container').style.fontSize = '25px'; // ขนาดฟอนต์ของข้อความ
+        
+        // ปรับขนาดและสไตล์ของปุ่มยืนยัน (สีแดง)
+        const confirmButton = document.querySelector('.swal2-confirm');
+        confirmButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+        confirmButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+        confirmButton.style.backgroundColor = '#d33'; // สีพื้นหลังแดงเข้ม
+        confirmButton.style.color = '#fff'; // สีข้อความขาว
+        
+        // ปรับขนาดและสไตล์ของปุ่มยกเลิก (สีฟ้า)
+        const cancelButton = document.querySelector('.swal2-cancel');
+        cancelButton.style.fontSize = '24px'; // ขนาดฟอนต์ของปุ่ม
+        cancelButton.style.padding = '6px 24px'; // ปรับขนาด padding ของปุ่ม
+        cancelButton.style.backgroundColor = '#3085d6'; // สีพื้นหลังฟ้า
+        cancelButton.style.color = '#fff'; // สีข้อความขาว
+      }
     });
-
+  
     if (result.isConfirmed) {
       try {
         const response = await fetch('/api/logout', {
@@ -704,7 +880,7 @@ export default function Component() {
           });
           return;
         }
-
+        localStorage.removeItem('storeId');
         localStorage.removeItem('session');
         router.push('/session/sign-in');
       } catch (error) {
@@ -718,26 +894,33 @@ export default function Component() {
     }
   };
 
-  const handleDecreaseQuantity = (productName) => {
-    setSelectedProducts((prevProducts) => {
-      const product = prevProducts.find(p => p.product_name === productName);
+const handleDecreaseQuantity = (productName) => {
+  setSelectedProducts((prevProducts) => {
+    const product = prevProducts.find(p => p.product_name === productName);
 
-      if (product) {
-        if (product.quantity > 1) {
-          // หากจำนวนสินค้ามากกว่า 1 ให้ลดจำนวนลง
-          return prevProducts.map((p) =>
-            p.product_name === productName
-              ? { ...p, quantity: p.quantity - 1 }
-              : p
-          );
-        } else {
-          // หากจำนวนสินค้าคือ 1 ให้ลบสินค้าออก
-          return prevProducts.filter((p) => p.product_name !== productName);
-        }
+    let updatedProducts;
+    if (product) {
+      if (product.quantity > 1) {
+        // หากจำนวนสินค้ามากกว่า 1 ให้ลดจำนวนลง
+        updatedProducts = prevProducts.map((p) =>
+          p.product_name === productName
+            ? { ...p, quantity: p.quantity - 1 }
+            : p
+        );
+      } else {
+        // หากจำนวนสินค้าคือ 1 ให้ลบสินค้าออก
+        updatedProducts = prevProducts.filter((p) => p.product_name !== productName);
       }
-      return prevProducts; // ไม่ทำอะไรหากไม่พบสินค้า
-    });
-  };
+    } else {
+      updatedProducts = prevProducts; // ไม่ทำอะไรหากไม่พบสินค้า
+    }
+
+    localStorage.setItem('selectedProducts', JSON.stringify(updatedProducts));
+
+    return updatedProducts;
+  });
+};
+
 
   const handleIncreaseQuantity = (productName) => {
     setSelectedProducts((prevProducts) =>
@@ -898,7 +1081,7 @@ export default function Component() {
   };
 
   const handleStoreSettingOpenModal = () => {
-    console.log('Store Details before opening Modal: ', storeDetails); // ตรวจสอบค่าของ storeDetails ก่อนเปิด Modal
+    console.log('Store Details before opening Modal: ', storeData); // ตรวจสอบค่าของ storeData ก่อนเปิด Modal
     setIsStoreSettingModalVisible(true);
   };
   
@@ -908,99 +1091,170 @@ export default function Component() {
 
 
   const onUpdateStore = (updatedDetails) => {
-    setStoreDetails({
-      store_name: updatedDetails.store_name,
-      store_img: updatedDetails.store_img,
-    });
-  };
-
-  const handleStoreNameChange = (newName) => {
-    setStoreDetails((prevDetails) => ({
-      ...prevDetails,
-      store_name: newName,
+    setStoreData((prevDetails) => ({
+      ...prevDetails, 
+      store_name: updatedDetails.store_name || prevDetails.store_name,
+      store_img: updatedDetails.store_img || prevDetails.store_img,
+      store_phone_no: updatedDetails.store_phone_no || prevDetails.store_phone_no,
+      store_address: updatedDetails.store_address || prevDetails.store_address,
     }));
   };
   
   
+  
 
+  const handleStoreNameChange = (newName) => {
+    setStoreData((prevDetails) => ({
+      ...prevDetails,
+      store_name: newName,
+    }));
+  };
 
+  const fetchProductByBarcode = async (barcode) => {
+    try {
+      const sessionToken = localStorage.getItem('session');
+      const storeId = localStorage.getItem('storeId');
 
+      const response = await fetch(`/api/products?product_code=${barcode}&store_id=${storeId}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const product = await response.json();
+        const existingItem = scannedItems.find(item => item.product_code === barcode);
+
+        if (existingItem) {
+          const updatedItems = scannedItems.map(item =>
+            item.product_code === barcode ? { ...item, quantity: item.quantity + 1 } : item
+          );
+          setScannedItems(updatedItems);
+        } else {
+          setScannedItems([...scannedItems, { ...product, quantity: 1 }]);
+        }
+        setSelectedProducts(scannedItems);
+      } else {
+        throw new Error('Product not found');
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+    }
+  };
+  
+  
+
+  // if (loading) {
+  //   return <LoadingStore />; 
+  // }
+  
 
 
   return (
+    
     <div className={`flex flex-col w-full min-h-screen ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
       
       <header className={`flex items-center justify-between h-16 px-4 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-100 border-b'} shrink-0 md:px-6`}>
   {/* Section ปุ่ม Products และ Categories */}
   <div className="flex items-center gap-4 font-thai text-xl">
-    <div className="flex items-center">
-      {/* ปุ่ม Products */}
-      <button
-        className={`flex items-center ${
-          darkMode
-            ? 'bg-teal-600 hover:bg-teal-700 text-white'
-            : 'bg-teal-400 hover:bg-teal-500 text-white'
-        } font-semibold py-2 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-      >
-        <PackageIcon className="w-5 h-5 mr-2" />
-        จัดการสินค้า
-      </button>
+  <div className="flex items-center">
+  {/* ปุ่มลบสินค้า */}
+  <button
+   onClick={barcodeToggleModal}
+    className={`flex items-center ${
+      darkMode
+        ? 'bg-red-600 hover:bg-red-700 text-white'
+        : 'bg-red-400 hover:bg-red-500 text-black'
+    }  font-semibold py-3 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+  >
+    <AiOutlineBarcode className="w-5 h-5" />
+  </button>
 
-      {/* ปุ่มเพิ่มสินค้า */}
-      <button
-        className={`${
-          darkMode
-            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-            : 'bg-yellow-400 hover:bg-yellow-500 text-white'
-        } font-bold py-2 px-3 rounded-r-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-      >
-        +
-      </button>
-    </div>
+  {/* ปุ่มจัดการสินค้า */}
+  <button
+    className={`flex items-center ${
+      darkMode
+        ? 'bg-teal-600 hover:bg-teal-700 text-white rounded-none'
+        : 'bg-teal-400 hover:bg-teal-500 text-black rounded-none'
+    } font-semibold py-2 px-4 transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+  >
+    <PackageIcon className="w-5 h-5 mr-2" />
+    จัดการสินค้า
+  </button>
+
+  {/* ปุ่มเพิ่มสินค้า */}
+  <button
+    className={`${
+      darkMode
+        ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+        : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+    } font-bold py-2 px-3 rounded-r-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+  >
+    +
+  </button>
+</div>
 
     {/* ปุ่ม Categories */}
     <div className="flex items-center">
-      <button
-        className={`flex items-center ${
-          darkMode
-            ? 'bg-teal-600 hover:bg-teal-700 text-white'
-            : 'bg-teal-400 hover:bg-teal-500 text-white'
-        } font-semibold py-2 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-      >
-        <LayoutGridIcon className="w-5 h-5 mr-2" />
-        จัดการหมวดหมู่
-      </button>
 
-      {/* ปุ่มเพิ่ม Categories */}
-      <button
-        className={`${
-          darkMode
-            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-            : 'bg-yellow-400 hover:bg-yellow-500 text-white'
-        } font-bold py-2 px-3 rounded-r-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-      >
-        +
-      </button>
-    </div>
+{/* ปุ่มลบ Categories */}
+{/* <button
+  className={`flex items-center ${
+    darkMode
+      ? 'bg-red-600 hover:bg-red-700 text-white'
+      : 'bg-red-400 hover:bg-red-500 text-black'
+  }  font-semibold py-3 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+>
+  <AiOutlineBarcode className="w-5 h-5" />
+</button> */}
+
+{/* ปุ่มจัดการหมวดหมู่ */}
+<button
+  className={`flex items-center ${
+    darkMode
+      ? 'bg-teal-600 hover:bg-teal-700 text-white'
+      : 'bg-teal-400 hover:bg-teal-500 text-black'
+  }  font-semibold py-2 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+>
+  <LayoutGridIcon className="w-5 h-5 mr-2" />
+  จัดการหมวดหมู่
+</button>
+
+{/* ปุ่มเพิ่ม Categories */}
+<button
+  className={`${
+    darkMode
+      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+      : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+  } font-bold py-2 px-3 rounded-r-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+>
+  +
+</button>
+
+</div>
+
   </div>
 
   {/* Section ข้อมูลด้านขวา เช่น เวลาและชื่อร้าน */}
   <div className="flex-grow text-center font-thai">
-  <span className={`text-3xl ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{currentTime}</span>
-  <span className={`text-3xl ${darkMode ? 'text-gray-100' : 'text-gray-900'} ml-4`}>{storeDetails.store_name}
-  <button
-        onClick={handleStoreSettingOpenModal}
-        className={` ml-2 ${
-          darkMode
-            ? 'bg-teal-600 hover:bg-teal-700 text-white'
-            : 'bg-teal-400 hover:bg-teal-500 text-white'
-        } font-semibold py-1 px-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-      >
-        <Settings className="w-6 h-6" />
-      </button>
-  </span>
+  <span className={`text-3xl ${darkMode ? 'text-gray-100' : 'text-gray-900'} inline-flex items-center`}>
+    <span className="mr-2">{currentTime}</span> 
+    {storeData.store_name} 
+    <button
+      onClick={handleStoreSettingOpenModal}
+      className={`ml-2 ${
+        darkMode
+          ? 'bg-teal-600 hover:bg-teal-700 text-white'
+          : 'bg-teal-400 hover:bg-teal-500 text-white'
+      } font-semibold py-1 px-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+    >
+      <Settings className="w-6 h-6" />
+    </button>
   
-  </div>
+  </span>
+</div>
+
+
 
 
   <div className="flex items-center gap-2 sm:gap-4 ">
@@ -1008,19 +1262,30 @@ export default function Component() {
       <SettingsModal 
   isVisible={isStoreSettingModalVisible}
   onClose={handleStoreSettingCloseModal}
-  storeId={storeDetails.storeId} 
+  storeId={storeData.storeId} 
   onUpdateStore={onUpdateStore}
   darkMode={darkMode}
 
 />
 
 
+<button
+            onClick={handleDashboardClick} // Add onClick event to the button
+            className={`ml-2 font-thai text-2xl ${
+                darkMode
+                    ? 'bg-blue-800 hover:bg-blue-900 text-gray-200' // Dark mode styles
+                    : 'bg-yellow-400 hover:bg-yellow-500 text-black'  // Light mode styles
+            } font-semibold py-1 px-3 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center`}
+        >
+            <LayoutDashboard className="w-6 h-6 mr-2" />
+            <span>Dashboard</span>
+        </button>
 
 
-    <button className={`btn ${darkMode ? 'bg-purple-600 text-white' : 'bg-purple-500 text-white'} gap-2`} onClick={handleDashboardClick}>
+    {/* <button className={`btn ${darkMode ? 'bg-purple-600 text-white' : 'bg-purple-500 text-white'} gap-2`} onClick={handleDashboardClick}>
       <CircleUserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
       <span className="text-sm sm:text-base">ผู้ดูแล</span>
-    </button>
+    </button> */}
 
     <div className="flex items-center gap-2 sm:gap-4">
       {/* Toggle Theme */}
@@ -1062,19 +1327,63 @@ export default function Component() {
 
       <main className={`flex flex-1 p-4 font-thai text-2xl ${darkMode ? 'bg-gray-900' : 'bg-gray-200'} md:p-3`}>
       <div className={`flex flex-col w-full sm:w-3/4 md:w-2/3 lg:w-1/2 xl:w-1/3 h-[calc(100vh-87px)] p-4  ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white bg-opacity-50 text-gray-900'} border rounded-md`}>
+      <div className="relative flex items-center">
+        <select
+          className={`text-2xl select select-bordered w-[748px] py-2 px-3 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}
+          value={selectedCustomer}
+          onChange={handleSelectChange}
+        >
+          <option value="walkin">ลูกค้าที่มาใช้บริการในร้าน</option>
+          {/* Dynamically render customer options from fetched data */}
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>
+              {customer.phone_no} {customer.name}
+            </option>
+          ))}
+        </select>
+        <div
+          className={`p-2 rounded-md cursor-pointer transition-all transform hover:scale-105 hover:bg-opacity-80 
+            ${darkMode ? 'text-white hover' : 'text-black hover'}`}
+        >
+          <IoMdPersonAdd className="w-8 h-8" />
+        </div>
+      </div>
+  <div className="relative flex items-center">
+    <input 
+      type="text" 
+      placeholder="ใส่รหัสบาร์โค้ด และ กด Enter หรือ กดที่ปุ่มบาร์โค้ดด้านขวา" 
+      className={`text-2xl input input-bordered w-[807px] py-2 px-3 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`} 
+    />
+    <div
+      className={`absolute right-0 top-0 p-2 rounded-md cursor-pointer transition-all transform hover:scale-105 hover:bg-opacity-80 
+        ${darkMode ? 'text-white hover' : 'text-black hover'}`}
+      // onClick={() => BarcodeScanProduct(true)} // Trigger the barcode scanner modal here
+    >
+      <AiOutlineBarcode className="w-8 h-8" /> {/* Barcode icon inside the input */}
+    </div>
+</div>
+
         <div className={`p-4 h-[calc(100vh-120px)] ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'} rounded-md`}>
-    <h2 className="text-3xl font-bold mb-4 ">
-      คำสั่งซื้อปัจจุบัน
-      <span className="badge badge-primary ml-2 text-2xl py-3 px-2">
-  {selectedProducts.length} รายการ
-</span>
-<span className="badge badge-warning ml-1 text-2xl py-3 px-2">
-  {totalItems} ชิ้น
-</span>
+        <div className="flex justify-between items-center mb-4">
 
-    </h2>
 
-<div className="h-[calc(100vh-430px)] overflow-y-auto">
+  <h2 className="text-2xl font-bold">
+    คำสั่งซื้อปัจจุบัน
+  </h2>
+
+        
+  <div className="flex items-center">
+    <span className="badge badge-primary ml-2 text-2xl py-3 px-2 font-bold">
+      {selectedProducts.length} รายการ
+    </span>
+    <span className="badge badge-warning ml-1 text-2xl py-3 px-2 font-bold">
+      {totalItems} ชิ้น
+    </span>
+  </div>
+</div>
+
+
+<div className="h-[calc(100vh-475px)] overflow-y-auto">
   {selectedProducts.map((product, index) => (
     <div key={index} className={`relative flex items-center justify-between mb-4 text-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} p-2 rounded-lg`}>
       {/* Delete Button (moved to the left side, before the image) */}
@@ -1157,10 +1466,10 @@ export default function Component() {
         darkMode={darkMode}
       />
 
-      <TicketPercent
+      {/* <TicketPercent
         onClick={() => handleItemDiscountClick(product.product_name)}
         className={`absolute top-0 right-2 w-5 h-5 cursor-pointer hover:opacity-80 transition-opacity ${darkMode ? 'text-white' : 'text-black'} hover:text-blue-500 transition-colors`}
-      />
+      /> */}
     </div>
   ))}
 </div>
@@ -1187,13 +1496,40 @@ export default function Component() {
         <span className="text-orange-500 text-2xl">{fullTotalPrice.toFixed(2)} ฿</span>
       </div>
       <div className="flex justify-between space-x-4">
-        <button
-          className={`flex items-center py-3 px-6 rounded-lg shadow-lg focus:outline-none transition-colors duration-300 ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-500 text-white'} ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : darkMode ? 'hover:bg-gray-500' : 'hover:bg-gray-600'}`}
-          disabled={selectedProducts.length === 0}
-        >
-          <Pause className="w-4 h-4 mr-2" />
-          พักชั่วคราว
-        </button>
+      <button
+        className={`flex items-center py-3 px-6 rounded-lg shadow-lg focus:outline-none transition-colors duration-300 
+          ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-500 text-white'} 
+          ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : darkMode ? 'hover:bg-gray-500' : 'hover:bg-gray-600'}`}
+        disabled={selectedProducts.length === 0}
+        onClick={handlePauseProducts}
+      >
+        <Pause className="w-4 h-4 mr-2" />
+        พักชั่วคราว
+      </button>
+      {pausedProducts.length > 0 && (
+        <div className="mt-4">
+          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-black'}`}>
+            รายการที่พักไว้
+          </h3>
+          <ul className="mt-2">
+            {pausedProducts.map((product, index) => (
+              <li
+                key={index}
+                className={`flex items-center justify-between p-2 mb-2 rounded-lg shadow-md ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-black'}`}
+              >
+                <span>{product.product_name}</span>
+                <button
+                  className={`ml-4 py-1 px-4 rounded-lg focus:outline-none transition-colors duration-300 ${darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'}`}
+                  onClick={() => handleContinueOrder(product)}
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  ดำเนินการต่อ
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
         <button
           onClick={handlePaymentClick}
           className={`flex items-center py-3 px-6 rounded-lg shadow-lg focus:outline-none transition-colors duration-300 ${darkMode ? 'bg-green-600 text-white' : 'bg-green-500 text-white'} ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : darkMode ? 'hover:bg-green-500' : 'hover:bg-green-600'}`}
@@ -1244,7 +1580,8 @@ export default function Component() {
   setSelectedProducts={setSelectedProducts}  // เพิ่ม setSelectedProducts ตรงนี้
   storeId={storeId}
   storeName={storeName}
-  darkMode={darkMode} 
+  darkMode={darkMode}
+  
   />
 
 
@@ -1255,7 +1592,7 @@ export default function Component() {
 
         </div>
 
-        <div className={`flex flex-col flex-1 p-4 mt md:ml-3 h-[calc(100vh-87px)] ${darkMode ? 'bg-gray-700' : 'bg-white'} bg-opacity-50 border rounded-md`}>
+        <div className={`flex flex-col flex-1 p-4 mt md:ml-3 sm:w-3/4 md:w-2/3 lg:w-1/2 xl:w-1/3 h-[calc(100vh-87px)] ${darkMode ? 'bg-gray-700' : 'bg-white'} bg-opacity-50 border rounded-md`}>
         <label className={`input input-bordered flex items-center gap-2 transition-all duration-300 ease-in-out ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-100 text-black'} mb-4`}>
         <input
           type="text"
@@ -1278,109 +1615,121 @@ export default function Component() {
 
 
 
-        <div className="flex justify-between items-center ">
-        <ul className=" text-xl menu lg:menu-horizontal rounded-box shadow-md p-2 transition-all duration-300 ease-in-out flex-grow">
-{/* Category Filter */}
-<li>
-  <a
-    onClick={() => setSelectedCategory(null)}
-    className={`${
-      selectedCategory === null 
-        ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
-        : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-black'}`
-    } transition duration-300 transform hover:scale-105`} // Add transition and scale effect
-  >
-    ทั้งหมด
-  </a>
-</li>
-{categories.map((category) => (
-  <li key={category.id}>
-    <a
-      onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
-      className={`${
-        selectedCategory === category.id 
-          ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100'} font-bold` 
-          : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-200 text-black'}`
-      } transition duration-300 transform hover:scale-105`}
-    >
-      {category.name}
-    </a>
-  </li>
-))}
-
-
-{/* Container for both Dropdown and Reload Button */}
-<div className="flex items-center ml-auto space-x-2 text-xl">
-  {/* Reload Button */}
-  <button
-    className="flex items-center gap-2 p-2 rounded-md bg-green-500 hover:bg-green-600 active:scale-95 transition-all"
-    onClick={handleReload}
-  >
-    <RxReload />
-
-  </button>
-
-       {/* Dropdown Menu Button for sorting */}
-       <div className="relative" ref={sortDropdownRef}>
-          <button
-            className={`flex items-center gap-2 p-2 rounded-md transition-all transform 
-              ${filterDropdownOpen ? (darkMode ? 'bg-gray-700' : 'bg-blue-700 shadow-lg') : (darkMode ? 'bg-gray-600' : 'bg-blue-500')} 
-              hover:${darkMode ? 'bg-gray-500' : 'bg-blue-600'} active:scale-95`}
-            onClick={handleDropdownToggle}
-          >
-            <ListFilter className="w-5 h-5" />
-            เรียงลำดับ
-          </button>
-
-          {/* Dropdown Menu */}
-          {filterDropdownOpen && (
-            <ul
-              className={`absolute z-50 mt-2 shadow-lg rounded-md py-1 w-48 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}
-              style={{
-                maxHeight: '200px', // Set max height for the dropdown
-                overflowY: 'auto',  // Enable scrolling if content exceeds max height
-                right: 0,           // Align dropdown to the right of the button
-              }}
-            >
-              <li>
-                <a
-                  className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'latest' ? 'font-bold' : ''}`}
-                  onClick={() => handleSortOption('latest')}
-                >
-                  <div className="flex items-center gap-x-2">
-                    <ClockArrowUp className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
-                    เพิ่มล่าสุด
-                  </div>
-                </a>
-              </li>
-              <li>
-                <a
-                  className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'price-low-high' ? 'font-bold' : ''}`}
-                  onClick={() => handleSortOption('price-low-high')}
-                >
-                  <div className="flex items-center gap-x-2">
-                    <ArrowDownNarrowWide className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
-                    ราคาน้อยไปมาก
-                  </div>
-                </a>
-              </li>
-              <li>
-                <a
-                  className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'price-high-low' ? 'font-bold' : ''}`}
-                  onClick={() => handleSortOption('price-high-low')}
-                >
-                  <div className="flex items-center gap-x-2">
-                    <ArrowUpNarrowWide className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
-                    ราคามากไปน้อย
-                  </div>
-                </a>
-              </li>
-            </ul>
-          )}
-        </div>
-  </div>
+<div className="flex justify-between items-center mt-[-15px]">
+<div className="flex-grow overflow-x-auto max-w-full whitespace-nowrap">
+  <ul className="text-xl menu lg:menu-horizontal rounded-box p-2 transition-all duration-300 ease-in-out flex sm:flex-nowrap">
+    {/* Category Filter */}
+    <li className="border border-gray-300 rounded-lg m-1">
+      <a
+        onClick={() => setSelectedCategory(null)}
+        className={`${
+          selectedCategory === null
+            ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100 border-blue-300'} font-bold`
+            : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-black border-gray-300'}`
+        } transition duration-300 transform hover:scale-105 px-3 sm:px-4 py-2`}
+      >
+        ทั้งหมด
+      </a>
+    </li>
+    {categories.map((category) => (
+      <li key={category.id} className="border border-gray-300 rounded-lg m-1">
+        <a
+          onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
+          className={`${
+            selectedCategory === category.id
+              ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100 border-blue-300'} font-bold`
+              : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-200 text-black border-gray-300'}`
+          } transition duration-300 transform hover:scale-105 px-3 sm:px-4 py-2`}
+        >
+          {category.name}
+        </a>
+      </li>
+    ))}
   </ul>
+</div>
+
+
+  {/* Container for both Dropdown and Reload Button */}
+  <div className="flex items-center ml-auto space-x-2 text-xl">
+    {/* Reload Button */}
+    <button
+      className="flex items-center gap-2 p-2 rounded-md bg-green-500 hover:bg-green-600 active:scale-95 transition-all ml-2"
+      onClick={handleReload}
+    >
+      <RxReload />
+    </button>
+
+    {/* Dropdown Menu Button for sorting */}
+    <div className="relative" ref={sortDropdownRef}>
+      <button
+        className={`flex items-center gap-2 p-2 rounded-md transition-all transform 
+          ${filterDropdownOpen ? (darkMode ? 'bg-gray-700' : 'bg-blue-700 shadow-lg') : (darkMode ? 'bg-gray-600' : 'bg-blue-500')} 
+          hover:${darkMode ? 'bg-gray-500' : 'bg-blue-600'} active:scale-95`}
+        onClick={handleDropdownToggle}
+      >
+        <ListFilter className="w-5 h-5" />
+      </button>
+
+      {/* Dropdown Menu */}
+      {filterDropdownOpen && (
+        <ul
+          className={`absolute z-50 mt-2 shadow-lg rounded-md py-1 w-48 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}
+          style={{
+            maxHeight: '200px', // Set max height for the dropdown
+            overflowY: 'auto',  // Enable scrolling if content exceeds max height
+            right: 0,           // Align dropdown to the right of the button
+          }}
+        >
+          <li>
+            <a
+              className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'latest' ? 'font-bold' : ''}`}
+              onClick={() => handleSortOption('latest')}
+            >
+              <div className="flex items-center gap-x-2">
+                <ClockArrowUp className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
+                เพิ่มล่าสุด
+              </div>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'price-low-high' ? 'font-bold' : ''}`}
+              onClick={() => handleSortOption('price-low-high')}
+            >
+              <div className="flex items-center gap-x-2">
+                <ArrowDownNarrowWide className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
+                ราคาน้อยไปมาก
+              </div>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'price-high-low' ? 'font-bold' : ''}`}
+              onClick={() => handleSortOption('price-high-low')}
+            >
+              <div className="flex items-center gap-x-2">
+                <ArrowUpNarrowWide className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
+                ราคามากไปน้อย
+              </div>
+            </a>
+          </li>
+          {/* Filter for Out of Stock */}
+      <li>
+        <a
+          className={`block px-4 py-2 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} ${sortOption === 'out-of-stock' ? 'font-bold' : ''}`}
+          onClick={() => handleSortOption('out-of-stock')}
+        >
+          <div className="flex items-center gap-x-2">
+            <LuPackageX className={`${darkMode ? 'text-white' : 'text-black'} w-4 h-4`} />
+            สินค้าหมด
+          </div>
+        </a>
+      </li>
+        </ul>
+      )}
+    </div>
   </div>
+</div>
 
 
 
@@ -1401,7 +1750,7 @@ export default function Component() {
           >
             {/* Stock Badge */}
             <span 
-  className={`absolute top-0 right-0  ${
+  className={`absolute top-[-6px] right-[-6px]  ${
     product.stock_quantity === 0 
       ? darkMode 
         ? 'bg-red-600'  // สีแดงเมื่อโหมดมืดและสินค้าหมด
@@ -1414,7 +1763,7 @@ export default function Component() {
         ? 'bg-green-600'  // สีเขียวเมื่อโหมดมืดและสินค้ามีพอเพียง
         : 'bg-green-500'  // สีเขียวเมื่อโหมดสว่างและสินค้ามีพอเพียง
     } 
-    font-semibold text-white text-lg px-2 py-1 rounded-full mt-2 mr-2 z-10 flex items-center gap-1`}
+    font-semibold text-white text-lg px-2 py-0 rounded-full mt-2 mr-2 z-10 flex items-center gap-1`}
 >
   <Package className="w-4 h-4" />
   {product.stock_quantity > 0 ? product.stock_quantity : 'สินค้าหมด'}
@@ -1428,13 +1777,15 @@ export default function Component() {
 
 
 
-<figure className="relative w-full h-32 sm:h-36 md:h-24 lg:h-32 overflow-hidden mt-4 ">
-              <img
-                src={product.img || 'default-image-url'}
-                alt={product.product_name || 'Product Image'}
-                className="w-full h-full object-contain"
-              />
-            </figure>
+<figure className="relative w-full h-32 sm:h-36 md:h-24 lg:h-32 overflow-hidden mt-4">
+  <img
+    src={product.img ? `${product.img}` : '/default-image-url.png'}  // Ensure default image if product.img is null
+    alt={product.product_name || 'Product Image'}
+    className="w-full h-full object-contain"
+  />
+</figure>
+
+
 
             <div className="card-body flex flex-col p-2 flex-grow">
               {/* Product Name */}
@@ -1457,7 +1808,7 @@ export default function Component() {
         ))
       ) : (
         <div className="col-span-full flex justify-center items-center h-32">
-          <p className={`text-xl font-semibold ${darkMode ? 'text-gray-100' : 'text-black'} mb-4`}>
+          <p className={`text-2xl font-semibold ${darkMode ? 'text-gray-100' : 'text-black'} mb-4`}>
             ไม่มีสินค้าที่ต้องแสดง
           </p>
         </div>

@@ -33,6 +33,7 @@ export default function Component() {
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedProductName, setSelectedProductName] = useState('');
+  const [userStoreId, setUserStoreId] = useState(null); // Store user store ID
 
   const [outOfStockToggle, setOutOfStockToggle] = useState(false); 
   const [progress, setProgress] = useState(0); 
@@ -115,7 +116,139 @@ export default function Component() {
   };
 
 
+  useEffect(() => {
+    async function fetchUserData() {
+        try {
+            const response = await fetch('/api/get-user');
+            if (response.ok) {
+                const userData = await response.json();
+                setUserStoreId(userData.store_id); // Store store_id in state
+            } else {
+                const errorData = await response.json();
+                console.error('Error fetching user data:', errorData.message); // Log the specific error message
 
+                // Display error alert using SweetAlert2
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด!',
+                    text: errorData.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้',
+                    confirmButtonText: 'ตกลง',
+                }).then(() => {
+                    router.push('/session/sign-in');
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+
+            // Display error alert using SweetAlert2
+            Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด!',
+                text: 'ไม่สามารถติดต่อกับเซิร์ฟเวอร์ได้',
+                confirmButtonText: 'ตกลง',
+            }).then(() => {
+                router.push('/session/sign-in');
+            });
+        }
+    }
+
+    fetchUserData();
+}, []);
+  const openAddCategory = () => {
+      Swal.fire({
+          title: '<h2>เพิ่มหมวดหมู่ใหม่</h2>',
+          html: `
+              <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 15px;">
+  <label for="category-name" style="font-size: 22px; font-weight: bold; margin-bottom: 5px;">ชื่อหมวดหมู่</label>
+  <input type="text" id="category-name" class="swal2-input" placeholder="ชื่อหมวดหมู่" style="width: 80%; height: 40px;" />
+</div>
+
+<div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 15px;">
+  <label for="category-description" style="font-size: 22px; font-weight: bold; margin-bottom: 5px;">รายละเอียดหมวดหมู่</label>
+  <textarea id="category-description" class="swal2-textarea" rows="3" placeholder="รายละเอียดหมวดหมู่" style="width: 80%; height: auto;"></textarea>
+</div>
+
+<div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 15px;">
+  <label for="category-img" style="font-size: 22px; font-weight: bold; margin-bottom: 8px;">เลือกรูปภาพหมวดหมู่ (ถ้ามี)</label>
+  <input type="file" id="category-img" class="swal2-file-input" accept="image/*" style="width: 80%; height: 40px;" />
+</div>
+
+          `,
+          focusConfirm: false,
+          customClass: {
+              confirmButton: 'custom-confirm-button',
+              cancelButton: 'custom-cancel-button',
+              title: 'font-thai',
+              htmlContainer: 'font-thai',  
+              confirmButton: 'font-thai',
+              cancelButton: 'font-thai',
+          },
+          showCancelButton: true,
+          confirmButtonText: 'บันทึก',
+          cancelButtonText: 'ยกเลิก',
+          preConfirm: () => {
+              const name = Swal.getPopup().querySelector('#category-name').value;
+              const description = Swal.getPopup().querySelector('#category-description').value;
+              const imageFile = Swal.getPopup().querySelector('#category-img').files[0];
+  
+              if (!name || !description) {
+                  Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
+                  return null;
+              }
+  
+              return { name, description, imageFile };
+          },
+  
+          willOpen: () => {
+              document.querySelector('.swal2-title').style.fontSize = '30px'; 
+              document.querySelector('.swal2-html-container').style.fontSize = '25px';
+              const confirmButton = document.querySelector('.swal2-confirm');
+              confirmButton.style.fontSize = '24px'; 
+              confirmButton.style.padding = '6px 24px';
+              confirmButton.style.backgroundColor = '#4CAF50'; 
+              confirmButton.style.color = '#fff'; 
+              const cancelButton = document.querySelector('.swal2-cancel');
+              cancelButton.style.fontSize = '24px';
+              cancelButton.style.padding = '6px 24px';
+              cancelButton.style.backgroundColor = '#f44336'; 
+              cancelButton.style.color = '#fff'; 
+          }
+      }).then((result) => {
+          if (result.isConfirmed) {
+              addCategory(result.value);
+          }
+      });
+  };
+
+  const addCategory = async (categoryData) => {
+    const formData = new FormData();
+    formData.append('name', categoryData.name);
+    formData.append('description', categoryData.description);
+
+    // Only append the image file if it exists (optional image upload)
+    if (categoryData.imageFile) {
+        formData.append('category_img', categoryData.imageFile); // Append the image file only if provided
+    }
+
+    try {
+        const response = await fetch(`/api/categories/manage-categories/${userStoreId}`, {
+            method: 'POST',
+            body: formData, // Send formData to the server
+        });
+
+        if (response.ok) {
+            Swal.fire('สำเร็จ!', 'หมวดหมู่ถูกเพิ่มเรียบร้อยแล้ว', 'success');
+            fetchCategories();
+        } else {
+            const errorData = await response.json();
+            console.error('Error adding category:', errorData.message);
+            Swal.fire('Error', errorData.message || 'เกิดข้อผิดพลาดในการเพิ่มหมวดหมู่', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire('Error', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error');
+    }
+};
 
   const barcodeToggleModal = () => {
     setIsBarcodeModalOpen(!isBarcodeModalOpen);
@@ -599,31 +732,37 @@ const handleSelectChange = (e) => {
     return urlParams.get('session_token') || '';
   };
 
+  const fetchCategories = async () => {
+    if (!storeId) {
+      console.error('storeId is undefined or null');
+      return;
+    }
+  
+    const sessionToken = localStorage.getItem('session');
+    
+    try {
+      const response = await fetch(`/api/categories?store_id=${storeId}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+  
+  // Use the function when storeId is valid
   useEffect(() => {
-    const fetchCategories = async () => {
-      const sessionToken = localStorage.getItem('session'); // ดึง sessionToken จาก localStorage
-      if (!sessionToken) {
-        router.push('/session/sign-in');
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/categories?store_id=${storeId}`, {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          }
-        });
-        const data = await response.json();
-        setCategories(data);
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      }
-    };
-
     if (storeId) {
       fetchCategories();
     }
   }, [storeId]);
+  
 
 
   useEffect(() => {
@@ -1172,15 +1311,17 @@ const handleDecreaseQuantity = (productName) => {
 
   {/* ปุ่มจัดการสินค้า */}
   <button
-    className={`flex items-center ${
-      darkMode
-        ? 'bg-teal-600 hover:bg-teal-700 text-white rounded-none'
-        : 'bg-teal-400 hover:bg-teal-500 text-black rounded-none'
-    } font-semibold py-2 px-4 transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
-  >
-    <PackageIcon className="w-5 h-5 mr-2" />
-    จัดการสินค้า
-  </button>
+  className={`flex items-center ${
+    darkMode
+      ? 'bg-teal-600 hover:bg-teal-700 text-white rounded-none'
+      : 'bg-teal-400 hover:bg-teal-500 text-black rounded-none'
+  } font-semibold py-2 px-4 transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md cursor-default`}
+  disabled
+>
+  <PackageIcon className="w-5 h-5 mr-2" />
+  จัดการสินค้า
+</button>
+
 
   {/* ปุ่มเพิ่มสินค้า */}
   <button
@@ -1214,7 +1355,7 @@ const handleDecreaseQuantity = (productName) => {
     darkMode
       ? 'bg-teal-600 hover:bg-teal-700 text-white'
       : 'bg-teal-400 hover:bg-teal-500 text-black'
-  }  font-semibold py-2 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md`}
+  }  font-semibold py-2 px-4 rounded-l-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md cursor-default`}
 >
   <LayoutGridIcon className="w-5 h-5 mr-2" />
   จัดการหมวดหมู่
@@ -1222,6 +1363,7 @@ const handleDecreaseQuantity = (productName) => {
 
 {/* ปุ่มเพิ่ม Categories */}
 <button
+  onClick={openAddCategory} // Add onClick event handler here
   className={`${
     darkMode
       ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
@@ -1230,6 +1372,7 @@ const handleDecreaseQuantity = (productName) => {
 >
   +
 </button>
+
 
 </div>
 
@@ -1631,20 +1774,20 @@ const handleDecreaseQuantity = (productName) => {
         ทั้งหมด
       </a>
     </li>
-    {categories.map((category) => (
-      <li key={category.id} className="border border-gray-300 rounded-lg m-1">
-        <a
-          onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
-          className={`${
-            selectedCategory === category.id
-              ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100 border-blue-300'} font-bold`
-              : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-200 text-black border-gray-300'}`
-          } transition duration-300 transform hover:scale-105 px-3 sm:px-4 py-2`}
-        >
-          {category.name}
-        </a>
-      </li>
-    ))}
+    {Array.isArray(categories) && categories.map((category) => (
+    <li key={category.id} className="border border-gray-300 rounded-lg m-1">
+      <a
+        onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
+        className={`${
+          selectedCategory === category.id
+            ? `${darkMode ? 'bg-gray-700 text-white' : 'bg-blue-100 border-blue-300'} font-bold`
+            : `${darkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-200 text-black border-gray-300'}`
+        } transition duration-300 transform hover:scale-105 px-3 sm:px-4 py-2`}
+      >
+        {category.name}
+      </a>
+    </li>
+  ))}
   </ul>
 </div>
 

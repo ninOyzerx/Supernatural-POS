@@ -1,20 +1,27 @@
 "use client";
-import Head from 'next/head';
 import Link from 'next/link';
-import 'datatables.net-bs5'; // Import the Bootstrap 5 styling for DataTables
-import 'datatables.net-bs5/css/dataTables.bootstrap5.min.css'; // Import the CSS for Bootstrap 5 DataTables
 import Script from 'next/script';
+import dynamic from 'next/dynamic';
+import $ from 'jquery';
+// import 'datatables.net-bs4';
+// import 'datatables.net-bs4/css/dataTables.bootstrap4.min.css';
 import { useRouter } from 'next/navigation'; 
 import Swal from 'sweetalert2';
 import { useEffect, useState } from 'react';
-import { ArrowLeftToLine , Calendar ,DollarSign ,AlertCircle ,Folder , Blocks , User2 ,LogOut} from 'lucide-react'; // Importing the icon from lucide-react
+import { ArrowLeftToLine , Calendar ,DollarSign ,AlertCircle ,Folder , Blocks , User2 ,LogOut ,LaptopMinimal ,
+    Pencil,Eraser,Logs,ClipboardList
+} from 'lucide-react'; // Importing the icon from lucide-react
+import { FaSun, FaMoon } from 'react-icons/fa'; // Ensure this is correct
+
 import '../../../public/css/sb-admin-2.css'; // Ensure this path is correct
+
 import { Chart } from 'chart.js';
 
 
-export default function Dashboard() {
+const Dashboard = () => {
     const router = useRouter(); 
     const [activePage, setActivePage] = useState('dashboard'); // Track active menu
+    const [darkMode, setDarkMode] = useState(false);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [salesData, setSalesData] = useState([]);
@@ -25,6 +32,7 @@ export default function Dashboard() {
     const [topProducts, setTopProducts] = useState([]);
     const [revenueData, setRevenueData] = useState([]); // State for revenue data
     const [lowStockItems, setLowStockItems] = useState([]);
+    const [totalOrders, setTotalOrders] = useState(null);
 
     const [userStoreId, setUserStoreId] = useState(null); // Store user store ID
     const [categories, setCategories] = useState([]);
@@ -40,7 +48,31 @@ export default function Dashboard() {
     const [currentPage, setCurrentPage] = useState(1);
     const [products, setProducts] = useState([]); // Initialize products as an empty array
 
-    
+    const toggleTheme = () => {
+        const newTheme = !darkMode;
+        setDarkMode(newTheme);
+        document.documentElement.classList.toggle('dark', newTheme);
+        localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    };
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+          // Your client-side specific code, e.g., localStorage access
+          const savedTheme = localStorage.getItem('theme');
+          setDarkMode(savedTheme === 'dark');
+        }
+      }, []);
+      
+      useEffect(() => {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+          setDarkMode(true);
+          document.documentElement.classList.add('dark');
+        } else {
+          setDarkMode(false);
+          document.documentElement.classList.remove('dark');
+        }
+      }, []);
+      
     const goToPosPage = () => {
         router.push('/pos');
         // Trigger a page reload after navigation with a short delay
@@ -48,6 +80,34 @@ export default function Dashboard() {
             window.location.reload();
         }, 100); // Adjust the delay as needed
     };
+
+    // useEffect(() => {
+    //     if (typeof window !== 'undefined') {
+    //       $(document).ready(function () {
+    //         $('#categoriesTable').DataTable();
+    //       });
+    //     }
+    //   }, []);
+      
+
+      useEffect(() => {
+        // Dynamically import jQuery and DataTables on the client side only
+        const loadScripts = async () => {
+          if (typeof window !== 'undefined') {
+            // Dynamically import jQuery
+            const jQuery = (await import('jquery')).default;
+            window.$ = window.jQuery = jQuery;
+    
+            // Dynamically import DataTables after jQuery
+            await import('datatables.net-bs4');
+            await import('datatables.net-bs4/css/dataTables.bootstrap4.min.css');
+    
+
+          }
+        };
+    
+        loadScripts();
+      }, []);
     
     const handleLogout = async () => {
         Swal.fire({
@@ -58,6 +118,29 @@ export default function Dashboard() {
             cancelButtonText: 'ยกเลิก',
             confirmButtonColor: '#3085d6',
             cancelButtonColor: '#d33',
+            customClass: {
+                confirmButton: 'custom-confirm-button',
+                cancelButton: 'custom-cancel-button',
+                title: 'font-thai',
+                htmlContainer: 'font-thai',  
+                confirmButton: 'font-thai',
+                cancelButton: 'font-thai',
+            },
+            willOpen: () => {
+
+                document.querySelector('.swal2-title').style.fontSize = '30px'; 
+                document.querySelector('.swal2-html-container').style.fontSize = '25px';
+                const confirmButton = document.querySelector('.swal2-confirm');
+                confirmButton.style.fontSize = '24px'; 
+                confirmButton.style.padding = '6px 24px';
+                confirmButton.style.backgroundColor = '#4CAF50'; 
+                confirmButton.style.color = '#fff'; 
+                const cancelButton = document.querySelector('.swal2-cancel');
+                cancelButton.style.fontSize = '24px';
+                cancelButton.style.padding = '6px 24px';
+                cancelButton.style.backgroundColor = '#f44336'; 
+                cancelButton.style.color = '#fff'; 
+            },
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
@@ -72,6 +155,7 @@ export default function Dashboard() {
                             showConfirmButton: false,
                             timer: 1500
                         });
+
                         // After a short delay, redirect to the login page
                         setTimeout(() => {
                             router.push('/session/sign-in');
@@ -101,21 +185,21 @@ export default function Dashboard() {
         }
     };
 
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await fetch(`/api/categories/manage-categories/${userStoreId}`);
-                const data = await response.json();
-                setCategories(data); // Set categories in state
-            } catch (error) {
-                console.error('Error fetching categories:', error);
-            }
-        };
+    // useEffect(() => {
+    //     const fetchCategories = async () => {
+    //         try {
+    //             const response = await fetch(`/api/categories/manage-categories/${userStoreId}`);
+    //             const data = await response.json();
+    //             setCategories(data); // Set categories in state
+    //         } catch (error) {
+    //             console.error('Error fetching categories:', error);
+    //         }
+    //     };
     
-        if (userStoreId) {
-            fetchCategories(); // Fetch categories based on store ID
-        }
-    }, [userStoreId]); // This runs when userStoreId changes
+    //     if (userStoreId) {
+    //         fetchCategories(); // Fetch categories based on store ID
+    //     }
+    // }, [userStoreId]); // This runs when userStoreId changes
     
 
     useEffect(() => {
@@ -176,11 +260,20 @@ export default function Dashboard() {
     : []; // Return an empty array if there's no data
 
     
-    const filteredProducts = sortedProducts.filter((product) =>
-        product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.price.toString().includes(searchTerm) // Convert price to string before comparison
-    ).slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    const filteredProducts = sortedProducts.filter((product) => {
+        const productName = product.product_name ? product.product_name.toLowerCase() : '';
+        const productDescription = product.description ? product.description.toLowerCase() : '';
+        const productCategory = categories.find(category => category.id === product.category_id)?.name.toLowerCase() || ''; // Find the category name for each product
+    
+        return (
+            productName.includes(searchTerm.toLowerCase()) || 
+            productDescription.includes(searchTerm.toLowerCase()) ||
+            productCategory.includes(searchTerm.toLowerCase()) || // Search by category name
+            product.price.toString().includes(searchTerm) // Convert price to string before comparison
+        );
+    }).slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    
+    
     
 
     const filteredCategories = sortedCategories
@@ -341,178 +434,209 @@ export default function Dashboard() {
         }
     }, [userStoreId]);
 
-
-    const  fetchTopSellingProducts = async () =>{
-            try {
-                const response = await fetch(`/api/graphs/product/top-selling?store_id=${userStoreId}`);
-                const data = await response.json();
-                setTopProducts(data);
-                loadTopSellingChart(data);
-            } catch (error) {
-                console.error('Error fetching top-selling products:', error);
-            }
-        }
-
-
-
-    useEffect(() => {
-        if (userStoreId) {
-            fetchTopSellingProducts();
-        }
-    }, [userStoreId]);
-
-    const fetchRevenueData = async () => {
+    const fetchTotalOrders = async () => {
         try {
-            const response = await fetch(`/api/graphs/revenue?store_id=${userStoreId}`);
+            const response = await fetch(`/api/graphs/product/total-orders?store_id=${userStoreId}`);
             const data = await response.json();
-            console.log("Revenue Data:", data); // Log the data for debugging
-    
-            if (response.ok) {
-                setRevenueData(data); // Assuming you have a state to hold revenue data
-                loadRevenueChart(data); // Load the chart with the fetched data
-            } else {
-                console.error('Error fetching revenue data:', data.error);
-            }
+            setTotalOrders(data.totalOrders); // Set total orders count to state
         } catch (error) {
-            console.error('Error fetching revenue data:', error);
+            console.error('Error fetching total orders:', error);
         }
     };
-// useEffect ที่เรียก fetchRevenueData เมื่อ userStoreId เปลี่ยนแปลง
-useEffect(() => {
-    if (userStoreId) {
-        fetchRevenueData();
-    }
-}, [userStoreId]);
     
     useEffect(() => {
-        const loadRevenueChart = (revenueData) => {
-            // ตรวจสอบว่ามี revenueData และ revenueChart อยู่ก่อน
-            if (!revenueData || revenueData.length === 0) {
-                console.error('No revenue data available for charting');
-                return;
-            }
-    
-            const categoryNames = revenueData.map(item => item.category_name);
-            const totalRevenue = revenueData.map(item => item.totalRevenue);
-    
-            const canvas = document.getElementById('revenueChart');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // Clear the canvas
-        
-                new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: categoryNames,
-                        datasets: [{
-                            label: 'ยอดขายตามหมวดหมู่',
-                            data: totalRevenue,
-                            backgroundColor: [
-                                'rgba(78, 115, 223, 0.7)',
-                                'rgba(28, 200, 138, 0.7)',
-                                'rgba(255, 193, 7, 0.7)',
-                                'rgba(255, 99, 132, 0.7)',
-                                'rgba(54, 162, 235, 0.7)',
-                            ],
-                            borderColor: 'rgba(255, 255, 255, 1)', // White border for contrast
-                            borderWidth: 2,
-                            hoverOffset: 8 // Slightly larger on hover
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold',
-                                    },
-                                    color: '#333',
-                                },
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(tooltipItem) {
-                                        const index = tooltipItem.dataIndex;
-                                        const revenue = new Intl.NumberFormat('th-TH', {
-                                            style: 'currency',
-                                            currency: 'THB',
-                                        }).format(totalRevenue[index]);
-                                        return `${categoryNames[index]}: ${revenue}`;
-                                    },
-                                    title: function() {
-                                        return 'ยอดขายตามหมวดหมู่'; // Title for the tooltip
-                                    },
-                                },
-                                backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dark background for tooltip
-                                titleColor: '#fff', // Tooltip title color
-                                bodyColor: '#fff', // Tooltip body color
-                            }
-                        },
-                    }
-                });
-            } else {
-                console.error('Canvas element with id "revenueChart" not found');
-            }
-        };
-    
-        loadRevenueChart(revenueData); // Call the function to load the chart
-    }, [revenueData]);
-    
-    
-    
-    
+        if (userStoreId) {
+            fetchTotalOrders();
+        }
+    }, [userStoreId]);
     
 
-    useEffect(() => {
-        const loadTopSellingChart = () => {
-            if (topProducts.length > 0) {
-                const productNames = topProducts.map(product => product.product_name);
-                const productSales = topProducts.map(product => product.total_sold);
-        
-                const canvasElement = document.getElementById('productChart');
-                if (!canvasElement) {
-                    console.error('Cannot find productChart element');
-                    return; // หยุดการทำงานถ้าไม่พบ element
-                }
-        
-                const ctx = canvasElement.getContext('2d');
-                if (!ctx) {
-                    console.error('Cannot get context for productChart');
-                    return;
-                }
-        
-                // Clear the canvas before creating a new chart
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: productNames,
-                        datasets: [{
-                            label: 'ยอดจำหน่ายรวม (ชิ้น)',
-                            data: productSales,
-                            backgroundColor: '#4e73df',
-                        }]
+
+// Define the loadRevenueChart function outside useEffect
+const loadRevenueChart = (revenueData) => {
+    if (!revenueData || revenueData.length === 0) {
+        console.error('No revenue data available for charting');
+        return;
+    }
+
+    const categoryNames = revenueData.map(item => item.category_name);
+    const totalRevenue = revenueData.map(item => item.totalRevenue);
+
+    const canvas = document.getElementById('revenueChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // Clear the canvas
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: categoryNames,
+                datasets: [{
+                    label: 'ยอดขายตามหมวดหมู่',
+                    data: totalRevenue,
+                    backgroundColor: [
+                        'rgba(78, 115, 223, 0.7)',
+                        'rgba(28, 200, 138, 0.7)',
+                        'rgba(255, 193, 7, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                    ],
+                    borderColor: 'rgba(255, 255, 255, 1)', // White border for contrast
+                    borderWidth: 2,
+                    hoverOffset: 8 // Slightly larger on hover
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14,
+                                weight: 'bold',
+                            },
+                            color: '#333',
+                        },
                     },
-                    options: {
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: { beginAtZero: true },
-                            x: { beginAtZero: true }
-                        }
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                const index = tooltipItem.dataIndex;
+                                const revenue = new Intl.NumberFormat('th-TH', {
+                                    style: 'currency',
+                                    currency: 'THB',
+                                }).format(totalRevenue[index]);
+                                return `${categoryNames[index]}: ${revenue}`;
+                            },
+                            title: function() {
+                                return 'ยอดขายตามหมวดหมู่'; // Title for the tooltip
+                            },
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dark background for tooltip
+                        titleColor: '#fff', // Tooltip title color
+                        bodyColor: '#fff', // Tooltip body color
                     }
-                });
+                },
             }
-        };
-        
+        });
+    } else {
+        console.error('Canvas element with id "revenueChart" not found');
+    }
+};
+
+// Fetch revenue data and load chart
+const fetchRevenueData = async () => {
+    try {
+        const response = await fetch(`/api/graphs/revenue?store_id=${userStoreId}`);
+        const data = await response.json();
+        console.log("Revenue Data:", data); // Log the data for debugging
+
+        if (response.ok) {
+            setRevenueData(data); // Assuming you have a state to hold revenue data
+
+            // Wait until canvas is available in the DOM before rendering the chart
+            if (document.getElementById('revenueChart')) {
+                loadRevenueChart(data);
+            }
+        } else {
+            console.error('Error fetching revenue data:', data.error);
+        }
+    } catch (error) {
+        console.error('Error fetching revenue data:', error);
+    }
+};
+
+
+// useEffect to fetch revenue data when userStoreId is available
+useEffect(() => {
+    if (userStoreId) {
+        fetchRevenueData(); // Fetch data and load chart
+    }
+}, [userStoreId]); // Re-run the effect when userStoreId changes
+
     
-        loadTopSellingChart(); // Call the function to load the chart
-    }, [topProducts]); // This effect runs every time topProducts changes
+useEffect(() => {
+    if (revenueData.length > 0 && document.getElementById('revenueChart')) {
+        loadRevenueChart(revenueData);
+    }
+}, [revenueData]);
+
+
+const fetchTopSellingProducts = async () => {
+    try {
+        const response = await fetch(`/api/graphs/product/top-selling?store_id=${userStoreId}`);
+        const data = await response.json();
+        setTopProducts(data);
+
+        // Ensure the chart is loaded only if the canvas exists
+        if (document.getElementById('productChart')) {
+            loadTopSellingChart(data);
+        }
+
+    } catch (error) {
+        console.error('Error fetching top-selling products:', error);
+    }
+};
+
+const loadTopSellingChart = (topProducts) => {
+    if (!topProducts || topProducts.length === 0) {
+        console.error('No top-selling products available for charting');
+        return;
+    }
+
+    const productNames = topProducts.map(product => product.product_name);
+    const productSales = topProducts.map(product => product.total_sold);
+
+    const canvasElement = document.getElementById('productChart');
+    if (!canvasElement) {
+        console.error('Cannot find productChart element');
+        return; // Stop execution if the element is not found
+    }
+
+    const ctx = canvasElement.getContext('2d');
+    if (!ctx) {
+        console.error('Cannot get context for productChart');
+        return;
+    }
+
+    // Clear the canvas before creating a new chart
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: productNames,
+            datasets: [{
+                label: 'ยอดจำหน่ายรวม (ชิ้น)',
+                data: productSales,
+                backgroundColor: '#4e73df',
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true },
+                x: { beginAtZero: true }
+            }
+        }
+    });
+};
+
+useEffect(() => {
+    if (userStoreId) {
+        fetchTopSellingProducts();
+    }
+}, [userStoreId]);
+
+useEffect(() => {
+    if (topProducts.length > 0 && document.getElementById('productChart')) {
+        loadTopSellingChart(topProducts);
+    }
+}, [topProducts]);
+
 
     const loadCharts = (salesData) => {
         if (!Array.isArray(salesData) || salesData.length === 0) {
@@ -581,32 +705,36 @@ const fetchCategories = async () => {
         setManageCategories(data); // Update categories state
 
         // ทำลายและสร้าง DataTable ใหม่
-        if ($.fn.DataTable.isDataTable('#categoriesTable')) {
-            $('#categoriesTable').DataTable().clear().destroy();
-        }
+        // if ($.fn.DataTable.isDataTable('#categoriesTable')) {
+        //     $('#categoriesTable').DataTable().clear().destroy();
+        // }
 
-        $('#categoriesTable').DataTable({
-            responsive: true,
-            paging: true,
-            searching: true,
-            autoWidth: false,
-            language: {
-                search: "ค้นหา:",
-                paginate: {
-                    first: "หน้าแรก",
-                    last: "หน้าสุดท้าย",
-                    next: "ถัดไป",
-                    previous: "ก่อนหน้า"
-                },
-                lengthMenu: "แสดง _MENU_ รายการ",
-                zeroRecords: "ไม่พบข้อมูลที่ตรงกัน",
-            },
-        });
+        // $('#categoriesTable').DataTable({
+        //     responsive: true,
+        //     paging: true,
+        //     searching: true,
+        //     autoWidth: false,
+        //     language: {
+        //         search: "ค้นหา:",
+        //         paginate: {
+        //             first: "หน้าแรก",
+        //             last: "หน้าสุดท้าย",
+        //             next: "ถัดไป",
+        //             previous: "ก่อนหน้า"
+        //         },
+        //         lengthMenu: "แสดง _MENU_ รายการ",
+        //         zeroRecords: "ไม่พบข้อมูลที่ตรงกัน",
+        //     },
+        // });
     } catch (error) {
         console.error('Error fetching categories:', error);
     }
 };
-
+useEffect(() => {
+    if (userStoreId) {
+        fetchCategories();
+    }
+}, [userStoreId]);
 const fetchProducts = async () => {
     try {
         const response = await fetch(`/api/products/manage-products/${userStoreId}`);
@@ -615,9 +743,9 @@ const fetchProducts = async () => {
         setManageProducts(data); // Update products state
 
         // Check if table exists, then destroy it before re-initializing
-        if ($.fn.DataTable.isDataTable('#productsTable')) {
-            $('#productsTable').DataTable().clear().destroy();
-        }
+        // if ($.fn.DataTable.isDataTable('#productsTable')) {
+        //     $('#productsTable').DataTable().clear().destroy();
+        // }
 
         // // Initialize DataTable after updating the state with fetched data
         // setTimeout(() => {
@@ -643,6 +771,12 @@ const fetchProducts = async () => {
         console.error('Error fetching products:', error);
     }
 };
+
+useEffect(() => {
+    if (userStoreId) {
+        fetchProducts();
+    }
+}, [userStoreId]);
 useEffect(() => {
     const savedPage = localStorage.getItem('activePage');
     if (savedPage) {
@@ -654,23 +788,32 @@ useEffect(() => {
 
     
 
-    useEffect(() => {
-        const loadScripts = async () => {
-            // Dynamically import JQuery
-            const jQuery = (await import('jquery')).default;
-            window.$ = window.jQuery = jQuery;
+// useEffect(() => {
+//     const loadScripts = async () => {
+//         // Dynamically import jQuery
+//         const jQuery = (await import('jquery')).default;
+//         window.$ = window.jQuery = jQuery;
 
-            // Dynamically import DataTables
-            await import('datatables.net-bs5'); // No need to call this as a function, just import it
+//         // Dynamically import DataTables after jQuery
+//         await import('datatables.net-bs5');
 
-            // Initialize DataTable
-            $(document).ready(function () {
-                $('#categoriesTable').DataTable(); // Initialize on table
-            });
-        };
+//         // Ensure the DOM is fully loaded before initializing DataTables
+//         $(document).ready(function () {
+//             // Initialize DataTables for both categories and products tables
+//             if ($.fn.DataTable.isDataTable('#categoriesTable')) {
+//                 $('#categoriesTable').DataTable().clear().destroy();
+//             }
+//             $('#categoriesTable').DataTable();
 
-        loadScripts();
-    }, [manageCategories]); // Run this effect when manageCategories is updated
+//             if ($.fn.DataTable.isDataTable('#productsTable')) {
+//                 $('#productsTable').DataTable().clear().destroy();
+//             }
+//             $('#productsTable').DataTable();
+//         });
+//     };
+
+//     loadScripts();
+// }, [manageCategories, manageProducts]); // Run this whenever manageCategories or manageProducts are updated
 
     const [editCategory, setEditCategory] = useState({ id: '', name: '', description: '', category_img: '' }); // State for editing category
 
@@ -742,12 +885,35 @@ useEffect(() => {
     };
 
     const openAddProduct = () => {
-        if (!categories || categories.length === 0) {
+        // Ensure categories is an array or default it to an empty array
+        if (!manageCategories || manageCategories.length === 0) {
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
+                title: 'ข้อผิดพลาด',
                 text: 'ไม่พบหมวดหมู่ กรุณาเพิ่มหมวดหมู่ก่อนเพิ่มสินค้า',
-                confirmButtonText: 'OK',
+                confirmButtonText: 'ตกลง',
+                customClass: {
+                    confirmButton: 'custom-confirm-button',
+                    cancelButton: 'custom-cancel-button',
+                    title: 'font-thai',
+                    htmlContainer: 'font-thai',
+                    confirmButton: 'font-thai',
+                    cancelButton: 'font-thai',
+                },
+                willOpen: () => {
+                    document.querySelector('.swal2-title').style.fontSize = '30px'; 
+                    document.querySelector('.swal2-html-container').style.fontSize = '25px';
+                    const confirmButton = document.querySelector('.swal2-confirm');
+                    confirmButton.style.fontSize = '24px'; 
+                    confirmButton.style.padding = '6px 24px';
+                    confirmButton.style.backgroundColor = '#4CAF50'; 
+                    confirmButton.style.color = '#fff'; 
+                    const cancelButton = document.querySelector('.swal2-cancel');
+                    cancelButton.style.fontSize = '24px';
+                    cancelButton.style.padding = '6px 24px';
+                    cancelButton.style.backgroundColor = '#f44336'; 
+                    cancelButton.style.color = '#fff'; 
+                }
             });
             return;
         }
@@ -755,41 +921,41 @@ useEffect(() => {
         Swal.fire({
             title: '<h2>เพิ่มสินค้าใหม่</h2>',
             html: `
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="product-name" style="font-size: 24px; font-weight: bold; width: 30%;">ชื่อสินค้า</label>
-    <input type="text" id="product-name" class="swal2-input" placeholder="ชื่อสินค้า" style="width: 65%; height: 40px;" />
-</div>
-
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="product-code" style="font-size: 24px; font-weight: bold; width: 30%;">รหัสสินค้า</label>
-    <input type="text" id="product-code" class="swal2-input" placeholder="รหัสสินค้า" style="width: 65%; height: 40px;" />
-</div>
-
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="category-id" style="font-size: 24px; font-weight: bold; width: 30%;">หมวดหมู่</label>
-    <select id="category-id" class="swal2-input" style="width: 65%; height: 40px; padding: 0 10px; border: 1px solid #d9d9d9; background-color: white;">
-        ${categories.map((category) => 
-            `<option value="${category.id}">${category.name}</option>`
-        ).join('')}
-    </select>
-</div>
-
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="price" style="font-size: 24px; font-weight: bold; width: 30%;">ราคา</label>
-    <input type="number" id="price" class="swal2-input" placeholder="ราคา" style="width: 65%; height: 40px;" />
-</div>
-
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="stock-quantity" style="font-size: 24px; font-weight: bold; width: 30%;">จำนวนคงเหลือ</label>
-    <input type="number" id="stock-quantity" class="swal2-input" placeholder="จำนวนคงเหลือ" style="width: 65%; height: 40px;" />
-</div>
-
-<div style="display: flex; align-items: center; margin-bottom: 10px;">
-    <label for="product-img" style="font-size: 24px; font-weight: bold; width: 30%;">เลือกรูปภาพสินค้า</label>
-    <input type="file" id="product-img" class="swal2-file-input" accept="image/*" style="width: 65%; height: 40px;" />
-</div>
-
-        `,
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="product-name" style="font-size: 24px; font-weight: bold; width: 30%;">ชื่อสินค้า</label>
+        <input type="text" id="product-name" class="swal2-input" placeholder="ชื่อสินค้า" style="width: 65%; height: 40px;" />
+    </div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="product-code" style="font-size: 24px; font-weight: bold; width: 30%;">รหัสสินค้า</label>
+        <input type="text" id="product-code" class="swal2-input" placeholder="รหัสสินค้า" style="width: 65%; height: 40px;" />
+    </div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="category-id" style="font-size: 24px; font-weight: bold; width: 30%;">หมวดหมู่</label>
+<select id="category-id" class="swal2-input" style="width: 65%; height: 40px; padding: 0 10px; border: 1px solid #d9d9d9; background-color: white; color: black;">
+                    ${manageCategories.map((category) => 
+                        `<option value="${category.id}">${category.name}</option>`
+                    ).join('')}
+                </select>
+    </div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="price" style="font-size: 24px; font-weight: bold; width: 30%;">ราคา</label>
+        <input type="number" id="price" class="swal2-input" placeholder="ราคา" style="width: 65%; height: 40px;" />
+    </div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="stock-quantity" style="font-size: 24px; font-weight: bold; width: 30%;">จำนวนคงเหลือ</label>
+        <input type="number" id="stock-quantity" class="swal2-input" placeholder="จำนวนคงเหลือ" style="width: 65%; height: 40px;" />
+    </div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <label for="product-img" style="font-size: 24px; font-weight: bold; width: 30%;">เลือกรูปภาพสินค้า</label>
+        <input type="file" id="product-img" class="swal2-file-input" accept="image/*" style="width: 65%; height: 40px;" />
+    </div>
+    
+            `,
             focusConfirm: false,
             showCancelButton: true,
             confirmButtonText: 'บันทึก',
@@ -818,8 +984,6 @@ useEffect(() => {
                 return { name, code, categoryId, price, stockQuantity, imageFile };
             },
             willOpen: () => {
-                const categoryImageInput = document.querySelector('#category-img');
-                const previewImage = document.querySelector('#preview-image');
                 document.querySelector('.swal2-title').style.fontSize = '30px'; 
                 document.querySelector('.swal2-html-container').style.fontSize = '25px';
                 const confirmButton = document.querySelector('.swal2-confirm');
@@ -887,11 +1051,12 @@ useEffect(() => {
 
 <div style="display: flex; align-items: center; margin-bottom: 10px; width: 100%;">
     <label for="category-id" style="font-size: 24px; font-weight: bold; width: 30%; text-align: left;">หมวดหมู่</label>
-    <select id="category-id" class="swal2-input" style="width: 65%; height: 40px; padding: 0 10px; border: 1px solid #d9d9d9; background-color: white; color: black;">
-        ${categories.map((category) => 
-            `<option value="${category.id}" ${category.id === product?.category_id ? 'selected' : ''}>${category.name}</option>`
-        ).join('')}
-    </select>
+<select id="category-id" class="swal2-input" style="width: 65%; height: 40px; padding: 0 10px; border: 1px solid #d9d9d9; background-color: white; color: black;">
+    ${manageCategories.map((category) => 
+        `<option value="${category.id}" ${category.id === product.category_id ? 'selected' : ''}>${category.name}</option>`
+    ).join('')}
+</select>
+
 </div>
 
 <div style="display: flex; align-items: center; margin-bottom: 10px; width: 100%;">
@@ -917,7 +1082,7 @@ useEffect(() => {
             `,
             focusConfirm: false,
             showCancelButton: true,
-            confirmButtonText: 'บันทึก',
+            confirmButtonText: 'อัพเดท',
             cancelButtonText: 'ยกเลิก',
             customClass: {
                 popup: 'custom-swal-popup',
@@ -1155,7 +1320,7 @@ useEffect(() => {
             const result = await response.json();
     
             if (response.ok) {
-                Swal.fire('อัพเดทสำเร็จ!', 'หมวดหมู่ได้รับการเปลี่ยนแปลงแล้ว.', 'success');
+                Swal.fire('อัพเดทสำเร็จ!', 'หมวดหมู่ได้รับการแก้ไขแล้ว', 'success');
                 await fetchCategories();
                 await fetchProducts();
             } else {
@@ -1251,83 +1416,123 @@ useEffect(() => {
             return (
                 <div className="container-fluid">
                 {/* Page Heading */}
-                <div className="d-sm-flex align-items-center justify-content-between mb-4">
-                    <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
-                </div>
+                <div className={`d-sm-flex align-items-center justify-content-between mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+    <h1 className={`h3 mb-0 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Dashboard</h1>
+</div>
+
 
                 <div className="row">
+                <div className="col-xl-3 col-md-6 mb-4">
+    <div className="card border-left-info shadow h-100 py-2" 
+         style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-body">
+            <div className="row no-gutters align-items-center">
+                <div className="col mr-2">
+                    <div className="font-thai text-uppercase mb-1" 
+                         style={{ 
+                             fontSize: '26px', 
+                             fontWeight: 'bold', 
+                             color: darkMode ? '#fff' : '#333' // Yellow for dark mode, dark text for light mode
+                         }}>
+                        คำสั่งซื้อทั้งหมด {totalOrders !== null ? `(${totalOrders} รายการ)` : '(ไม่มีคำสั่งซื้อ)'}
+                    </div>
+                </div>
+                <div className="col-auto">
+                    <Logs 
+                        className="h-8 w-8" 
+                        style={{ color: darkMode ? '#ffc107' : '#333' }} // Same color adjustment for icon
+                    />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
                     {/* Monthly Earnings (Current Month Only) */}
                     <div className="col-xl-3 col-md-6 mb-4">
-<div className="card border-left-primary shadow h-100 py-2">
-<div className="card-body">
-<div className="row no-gutters align-items-center">
-    <div className="col mr-2">
-        <div className="font-thai text-primary text-uppercase mb-1" style={{ fontSize: '26px', fontWeight: 'bold' }}>
-            ยอดขาย ({currentMonth})
+    <div className="card border-left-primary shadow h-100 py-2" 
+         style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-body">
+            <div className="row no-gutters align-items-center">
+                <div className="col mr-2">
+                    <div className="font-thai text-primary text-uppercase mb-1" 
+                         style={{ fontSize: '26px', fontWeight: 'bold', color: darkMode ? '#90caf9' : '#4e73df' }}>
+                        ยอดขาย ({currentMonth})
+                    </div>
+                    {/* Check if monthlySales has data */}
+                    {monthlySales !== null ? (
+                        <div className="h3 mb-0 font-weight-bold" 
+                             style={{ color: darkMode ? '#fff' : '#333' }}>
+                            ฿ {parseFloat(monthlySales).toLocaleString()}
+                        </div>
+                    ) : (
+                        <div className="h3 mb-0 font-weight-bold" 
+                             style={{ color: darkMode ? '#ccc' : '#333' }}>
+                            ไม่พบข้อมูล
+                        </div>
+                    )}
+                </div>
+                <div className="col-auto">
+                    <Calendar className="h-8 w-8" style={{ color: darkMode ? '#fff' : '#ccc' }} />
+                </div>
+            </div>
         </div>
-        {/* Check if monthlySales has data */}
-        {monthlySales !== null ? (
-            <div className="h3 mb-0 font-weight-bold text-gray-800">
-                ฿ {parseFloat(monthlySales).toLocaleString()}
-            </div>
-        ) : (
-            <div className="h3 mb-0 font-weight-bold text-gray-800">
-                ไม่พบข้อมูล
-            </div>
-        )}
-    </div>
-    <div className="col-auto">
-        <Calendar className="h-8 w-8 text-gray-300" /> {/* Increased size of the Calendar icon */}
     </div>
 </div>
-</div>
-</div>
-</div>
+
 
                     {/* Annual Earnings (Current Year Only) */}
                     <div className="col-xl-3 col-md-6 mb-4">
-<div className="card border-left-success shadow h-100 py-2">
-<div className="card-body">
-<div className="row no-gutters align-items-center">
-    <div className="col mr-2">
-        <div className="font-thai text-success text-uppercase mb-1" style={{ fontSize: '26px', fontWeight: 'bold' }}>
-            ยอดขาย (ปี {currentYear})
+    <div className="card border-left-success shadow h-100 py-2" 
+         style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-body">
+            <div className="row no-gutters align-items-center">
+                <div className="col mr-2">
+                    <div className="font-thai text-success text-uppercase mb-1" 
+                         style={{ fontSize: '26px', fontWeight: 'bold', color: darkMode ? '#4caf50' : '#1cc88a' }}>
+                        ยอดขาย (ปี {currentYear})
+                    </div>
+                    {/* Check if annualSales has data */}
+                    {annualSales !== null ? (
+                        <div className="h3 mb-0 font-weight-bold" 
+                             style={{ color: darkMode ? '#fff' : '#333' }}>
+                            ฿ {parseFloat(annualSales).toLocaleString()}
+                        </div>
+                    ) : (
+                        <div className="h3 mb-0 font-weight-bold" 
+                             style={{ color: darkMode ? '#ccc' : '#333' }}>
+                            ไม่พบข้อมูล
+                        </div>
+                    )}
+                </div>
+                <div className="col-auto">
+                    <DollarSign className="h-8 w-8" style={{ color: darkMode ? '#fff' : '#ccc' }} />
+                </div>
+            </div>
         </div>
-        {/* Check if annualSales has data */}
-        {annualSales !== null ? (
-            <div className="h3 mb-0 font-weight-bold text-gray-800">
-                ฿ {parseFloat(annualSales).toLocaleString()}
-            </div>
-        ) : (
-            <div className="h3 mb-0 font-weight-bold text-gray-800">
-                ไม่พบข้อมูล
-            </div>
-        )}
     </div>
-    <div className="col-auto">
-        <DollarSign className="h-8 w-8 text-gray-300" />
-    </div>
-</div>
-</div>
-</div>
 </div>
 
 <div className="col-xl-3 col-md-6 mb-4">
-                <div className="card border-left-warning shadow h-100 py-2">
-                    <div className="card-body">
-                        <div className="row no-gutters align-items-center">
-                            <div className="col mr-2">
-                                <div className="font-thai text-warning text-uppercase mb-1" style={{ fontSize: '26px', fontWeight: 'bold' }}>
-                                    สินค้าคงคลังต่ำ {lowStockItems.length > 0 ? `(${lowStockItems.length} รายการ)` : '(ไม่มีสินค้าเหลือน้อย)'}
-                                </div>
-                            </div>
-                            <div className="col-auto">
-                                <AlertCircle className="h-8 w-8 text-gray-300" />
-                            </div>
-                        </div>
+    <div className="card border-left-warning shadow h-100 py-2" 
+         style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-body">
+            <div className="row no-gutters align-items-center">
+                <div className="col mr-2">
+                    <div className="font-thai text-warning text-uppercase mb-1" 
+                         style={{ fontSize: '26px', fontWeight: 'bold', color: darkMode ? '#ffc107' : '#f6c23e' }}>
+                        สินค้าคงคลังต่ำ {lowStockItems.length > 0 ? `(${lowStockItems.length} รายการ)` : '(ไม่มีสินค้าเหลือน้อย)'}
                     </div>
                 </div>
+                <div className="col-auto">
+                    <AlertCircle className="h-8 w-8" style={{ color: darkMode ? '#fff' : '#ccc' }} />
+                </div>
             </div>
+        </div>
+    </div>
+</div>
+
 
 
 
@@ -1338,41 +1543,46 @@ useEffect(() => {
 
                 {/* Content Row */}
                 <div className="row">
-                    {/* Sales Overview (Line Chart) */}
-                    <div className="col-xl-8 col-lg-7">
-                        <div className="card shadow mb-4">
-                            <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 className="m-0 font-weight-bold text-primary">ภาพรวมการขาย</h6>
-                            </div>
-                            <div className="card-body">
-                            {salesData.length > 0 ? (
-                                    <div className="chart-area">
-                                        <canvas id="salesChart"></canvas>
-                                    </div>
-                                ) : (
-                                    <div className="text-center text-gray-500">ไม่พบข้อมูล</div>
-                                )}
-                            </div>
-                        </div>
+    {/* Sales Overview (Line Chart) */}
+    <div className="col-xl-8 col-lg-7">
+        <div className="card shadow mb-4" style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+            <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between font-thai" 
+                 style={{ backgroundColor: darkMode ? '#2c2c2e' : '#f8f9fc', color: darkMode ? '#fff' : '#4e73df' }}>
+                <h3 className="m-0 font-weight-bold" style={{ color: darkMode ? '#4e73df' : '#4e73df' }}>ภาพรวมการขาย</h3>
+            </div>
+            <div className="card-body font-thai">
+                {salesData.length > 0 ? (
+                    <div className="chart-area ">
+                        <canvas id="salesChart" style={{ backgroundColor: darkMode ? '#2c2c2e' : '#fff' }}></canvas>
                     </div>
+                ) : (
+                    <div className="h4 text-center" style={{ color: darkMode ? '#b0b0b0' : '#6c757d' }}>ไม่พบข้อมูล</div>
+                )}
+            </div>
+        </div>
+    </div>
+
+
 
                     {/* Revenue Breakdown (Pie Chart) */}
                     <div className="col-xl-4 col-lg-5">
-<div className="card shadow mb-4">
-<div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-<h6 className="m-0 font-weight-bold text-primary">จำแนกรายได้ตามหมวดหมู่</h6> {/* Changed to Thai */}
-</div>
-<div className="card-body">
-{revenueData.length > 0 ? (  // Check if revenueData has items
-    <div className="chart-pie pt-4 pb-2">
-        <canvas id="revenueChart"></canvas>
+    <div className="card shadow mb-4" style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between font-thai" 
+             style={{ backgroundColor: darkMode ? '#2c2c2e' : '#f8f9fc', color: darkMode ? '#fff' : '#4e73df' }}>
+            <h3 className="m-0 font-weight-bold" style={{ color: darkMode ? '#4e73df' : '#4e73df' }}>จำแนกรายได้ตามหมวดหมู่</h3>
+        </div>
+        <div className="card-body font-thai">
+            {revenueData.length > 0 ? (  // Check if revenueData has items
+                <div className="chart-pie pt-4 pb-2">
+                    <canvas id="revenueChart" style={{ backgroundColor: darkMode ? '#2c2c2e' : '#fff' }}></canvas>
+                </div>
+            ) : (
+                <div className="h4 text-center" style={{ color: darkMode ? '#b0b0b0' : '#6c757d' }}>ไม่พบข้อมูล</div>  // Message when no data
+            )}
+        </div>
     </div>
-) : (
-    <div className="text-center text-gray-500">ไม่พบข้อมูล</div>  // Message when no data
-)}
 </div>
-</div>
-</div>
+
 
                 </div>
 
@@ -1380,21 +1590,24 @@ useEffect(() => {
                 <div className="row">
                     {/* Top-Selling Products (Bar Chart) */}
                     <div className="col-xl-12 col-lg-12">
-<div className="card shadow mb-4">
-<div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-<h6 className="m-0 font-weight-bold text-primary">สินค้าขายดี</h6>
-</div>
-<div className="card-body">
-{topProducts.length > 0 ? (  // Check if topProducts has items
-    <div className="chart-bar">
-        <canvas id="productChart"></canvas>
+    <div className="card shadow mb-4" style={{ backgroundColor: darkMode ? '#1c1c1e' : '#fff', color: darkMode ? '#fff' : '#333' }}>
+        <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between font-thai" 
+             style={{ backgroundColor: darkMode ? '#2c2c2e' : '#f8f9fc', color: darkMode ? '#fff' : '#4e73df' }}>
+            <h3 className="m-0 font-weight-bold" style={{ color: darkMode ? '#4e73df' : '#4e73df' }}>สินค้าขายดี</h3>
+        </div>
+        <div className="card-body font-thai">
+            {topProducts.length > 0 ? (  // Check if topProducts has items
+                <div className="chart-bar">
+                    <canvas id="productChart" style={{ backgroundColor: darkMode ? '#2c2c2e' : '#fff' }}></canvas>
+                </div>
+            ) : (
+                <div className="h4 text-center" style={{ color: darkMode ? '#b0b0b0' : '#6c757d' }}>ไม่พบข้อมูล</div>  // Message when no data
+            )}
+        </div>
     </div>
-) : (
-    <div className="text-center text-gray-500">ไม่พบข้อมูล</div>  // Message when no data
-)}
 </div>
-</div>
-</div>
+
+
 
                 </div>
                 
@@ -1405,234 +1618,277 @@ useEffect(() => {
             );
         } else if (activePage === 'manageCategories') {
             return (
-                <div className="container-fluid mx-0 p-0 font-thai">
-                <div className="py-0">
-                    <div className="flex flex-row mb-1 sm:mb-0 justify-between w-full">
-                        <h2 className="text-3xl font-bold leading-tight">จัดการหมวดหมู่</h2>
-                    </div>
-                    
-                    <div className="w-full p-0 overflow-x-auto font-thai">
-                        <div className="flex justify-between mb-2">
-                            <div>
-                                <button 
-                                    onClick={openAddCategory} 
-                                    className="text-2xl bg-green-500 text-white px-3 py-2 rounded">
-                                    เพิ่มหมวดหมู่
-                                </button>
-                            </div>
-                            <div className="w-1/6">
-                                <input
-                                    type="text"
-                                    className="text-2xl appearance-none border border-gray-300 rounded py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:border-gray-500"
-                                    placeholder="ค้นหา..."
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        
-                        <span className='text-3xl'>หน้า {currentPage}</span>
-                        <table className="min-w-full table-auto text-center">
-                            <thead>
-                                <tr className="bg-gray-200 text-gray-600 uppercase text-2xl leading-normal">
-                                    <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('name')}>
-                                        ชื่อ
-                                        {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
-                                    </th>
-                                    <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('description')}>
-                                        คำอธิบาย
-                                        {sortConfig.key === 'description' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
-                                    </th>
-                                    <th className="py-3 px-6 text-left">จำนวนสินค้า</th> {/* New Product Count Column */}
-                                    <th className="py-3 px-6 text-left">รูปภาพ</th>
-                                    <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('date_created')}>
-                                        สร้างเมื่อ
-                                        {sortConfig.key === 'date_created' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
-                                    </th>
-                                    <th className="py-3 px-6 text-center"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-gray-600 text-2xl font-light">
-                                {filteredCategories.map((category) => (
-                                    <tr key={category.id} className="border-b border-gray-200 hover:bg-gray-100">
-                                        <td className="py-3 px-6 text-left">{category.name}</td>
-                                        <td className="py-3 px-6 text-left">{category.description}</td>
-                                        <td className="py-3 px-6 text-left">{category.product_count}</td> {/* Display product count */}
-                                        <td className="py-3 px-6 text-left">
-                                            <img
-                                                src={category.category_img || '/default-image.png'}
-                                                alt="รูปภาพ"
-                                                className="w-16 h-16 object-cover"
-                                            />
-                                        </td>
-                                        <td className="py-3 px-6 text-left">
-                                            {new Date(category.date_created).toLocaleString('th-TH', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        <td className="py-3 px-6 text-center">
-                                            <button onClick={() => handleEdit(category)} className="bg-blue-500 text-white px-4 py-2 rounded mr-2">
-                                                แก้ไข
-                                            </button>
-                                            <button onClick={() => handleDelete(category.id)} className="bg-red-500 text-white px-4 py-2 rounded">
-                                                ลบ
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-            
-                    <div className="flex justify-between mt-4">
-                        <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
-                        >
-                            ก่อนหน้า
-                        </button>
-                        <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={filteredCategories.length < rowsPerPage}
-                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
-                        >
-                            ถัดไป
-                        </button>
-                    </div>
+<div className="container-fluid mx-0 p-0 font-thai" style={{ backgroundColor: darkMode ? '#1F2937' : '#F9FAFB', color: darkMode ? '#fff' : '#000' }}>
+    <div className="py-0">
+        <div className="flex flex-row mb-1 sm:mb-0 justify-between w-full">
+            <h2 className="text-3xl font-bold leading-tight">จัดการหมวดหมู่</h2>
+        </div>
+
+        <div className="w-full p-0 overflow-x-auto font-thai">
+            <div className="flex justify-between mb-2">
+                <div>
+                    <button 
+                        onClick={openAddCategory} 
+                        className="text-2xl bg-green-500 text-white px-3 py-2 rounded"
+                        style={{ backgroundColor: darkMode ? '#4CAF50' : '#4CAF50', color: '#fff' }}
+                    >
+                        เพิ่มหมวดหมู่
+                    </button>
+                </div>
+                <div className="w-1/4">
+                    <input
+                        type="text"
+                        className="text-2xl appearance-none border border-gray-300 rounded py-2 px-4 leading-tight focus:outline-none focus:border-gray-500"
+                        style={{
+                            backgroundColor: darkMode ? '#2c2c2e' : '#fff',
+                            color: darkMode ? '#fff' : '#000',
+                            borderColor: darkMode ? '#444' : '#d9d9d9',
+                        }}
+                        placeholder="ค้นหา..."
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
             </div>
+
+            <span className="text-3xl">หน้า {currentPage}</span>
+            <table id="categoriesTable" className="min-w-full table-auto text-center" style={{ backgroundColor: darkMode ? '#2c2c2e' : '#fff' }}>
+                <thead>
+                    <tr className="uppercase text-2xl leading-normal" style={{ backgroundColor: darkMode ? '#3a3a3c' : '#f8f9fa', color: darkMode ? '#fff' : '#000' }}>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('name')}>
+                            ชื่อ
+                            {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('description')}>
+                            คำอธิบาย
+                            {sortConfig.key === 'description' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left">จำนวนสินค้า</th>
+                        <th className="py-3 px-6 text-left">รูปภาพ</th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('date_created')}>
+                            สร้างเมื่อ
+                            {sortConfig.key === 'date_created' && (sortConfig.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-center"></th>
+                    </tr>
+                </thead>
+                <tbody className="text-2xl font-light" style={{ color: darkMode ? '#fff' : '#000' }}>
+                    {filteredCategories.map((category) => (
+                        <tr key={category.id} 
+                            className="border-b hover:bg-gray-100" 
+                            style={{ 
+                                backgroundColor: darkMode ? '#2c2c2e' : '#fff', 
+                                borderColor: darkMode ? '#444' : '#eaeaea',
+                                transition: 'background-color 0.3s ease',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#444' : '#f0f0f0'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#2c2c2e' : '#fff'}
+                        >
+                            <td className="py-3 px-6 text-left">{category.name}</td>
+                            <td className="py-3 px-6 text-left">{category.description}</td>
+                            <td className="py-3 px-6 text-left">{category.product_count}</td>
+                            <td className="py-3 px-6 text-left">
+                                <img
+                                    src={category.category_img || '/default-image.png'}
+                                    alt="รูปภาพ"
+                                    className="w-16 h-16 object-cover"
+                                />
+                            </td>
+                            <td className="py-3 px-6 text-left">
+                                {new Date(category.date_created).toLocaleString('th-TH', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </td>
+                            <td className="py-2 px-7 text-center">
+                            <div className="flex space-x-4 items-center">
+                            <Pencil 
+  size={50} 
+  onClick={() => handleEdit(category)}
+  className="text-blue-500 cursor-pointer p-2 rounded hover:text-white transition-colors hover:scale-110 transition-transform"
+/>
+
+<Eraser
+  size={50}
+  onClick={() => handleDelete(category.id)}
+  className="text-red-500 cursor-pointer p-2 rounded hover:text-white transition-colors hover:scale-110 transition-transform"
+/>
+</div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+
+        <div className="flex justify-between mt-4">
+            <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
+                style={{ backgroundColor: darkMode ? '#3a3a3c' : '#eaeaea', color: darkMode ? '#fff' : '#000' }}
+            >
+                ก่อนหน้า
+            </button>
+            <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={filteredCategories.length < rowsPerPage}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
+                style={{ backgroundColor: darkMode ? '#3a3a3c' : '#eaeaea', color: darkMode ? '#fff' : '#000' }}
+            >
+                ถัดไป
+            </button>
+        </div>
+    </div>
+</div>
+
+
             
             
             );            
         } else if (activePage === 'manageProducts') {
             return (
-                <div className="container-fluid mx-0 p-0 font-thai">
-                    <div className="py-0">
-                        <div className="flex flex-row mb-1 sm:mb-0 justify-between w-full">
-                            <h2 className="text-3xl font-bold leading-tight">จัดการสินค้า</h2>
-                        </div>
-        
-                        <div className="w-full p-0 overflow-x-auto font-thai">
-                            <div className="flex justify-between mb-2">
-                                <div>
-                                    <button 
-                                        onClick={openAddProduct} 
-                                        className="text-2xl bg-green-500 text-white px-3 py-2 rounded">
-                                        เพิ่มสินค้า
-                                    </button>
-                                </div>
-                                <div className="w-1/6">
-                                    <input
-                                        type="text"
-                                        className="text-2xl appearance-none border border-gray-300 rounded py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:border-gray-500 "
-                                        placeholder="ค้นหา..."
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-        
-                            <span className='text-3xl'>หน้า {currentPage}</span>
-                            <table id="productsTable" className="min-w-full table-auto text-center">
-    <thead>
-        <tr className="bg-gray-200 text-gray-600 uppercase text-2xl leading-normal">
-            <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('product_name')}>
-                ชื่อสินค้า
-                {sortConfigProducts.key === 'product_name' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
-            </th>
-            <th className="py-3 px-6 text-left">หมวดหมู่</th> {/* New Category Column */}
-            <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('product_code')}>
-                รหัสสินค้า
-                {sortConfigProducts.key === 'product_code' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
-            </th>
-            <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('price')}>
-                ราคา
-                {sortConfigProducts.key === 'price' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
-            </th>
-            <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('stock_quantity')}>
-                จำนวน
-                {sortConfigProducts.key === 'stock_quantity' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
-            </th>
-            <th className="py-3 px-6 text-left">รูปภาพ</th>
-            <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('created_at')}>
-                สร้างเมื่อ
-                {sortConfigProducts.key === 'created_at' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
-            </th>
-            <th className="py-3 px-6 text-center"></th> {/* Action Column */}
-        </tr>
-    </thead>
-    <tbody className="text-gray-600 text-2xl font-light">
-        {filteredProducts.map((product) => (
-            <tr key={product.id} className="border-b border-gray-200 hover:bg-gray-100">
-                <td className="py-3 px-6 text-left">{product.product_name}</td>
-                <td className="py-3 px-6 text-left">
-                    {categories.find((category) => category.id === product.category_id)?.name || 'ไม่ทราบหมวดหมู่'}
-                </td>
-                <td className="py-3 px-6 text-left">{product.product_code}</td>
-                <td className="py-3 px-6 text-left">{product.price}</td>
-                <td className="py-3 px-6 text-left">{product.stock_quantity}</td>
-                <td className="py-3 px-6 text-left">
-                    <img
-                        src={product.img || '/default-image.png'}
-                        alt="Product"
-                        className="w-16 h-16 object-cover"
-                    />
-                </td>
-                <td className="py-3 px-6 text-left">
-                    {new Date(product.created_at).toLocaleString('th-TH', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                    })}
-                </td>
-                <td className="py-3 px-6 text-center">
-                    <button
-                        onClick={() => handleEditProduct(product)} 
-                        className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
+<div className={`container-fluid mx-0 p-0 font-thai ${darkMode ? 'bg-dark-800 text-white' : 'bg-light-100 text-gray-900'}`}>
+    <div className="py-0">
+        <div className="flex flex-row mb-1 sm:mb-0 justify-between w-full">
+            <h2 className="text-3xl font-bold leading-tight">จัดการสินค้า</h2>
+        </div>
+
+        <div className="w-full p-0 overflow-x-auto font-thai">
+            <div className="flex justify-between mb-2">
+                <div>
+                    <button 
+                        onClick={openAddProduct} 
+                        className={`text-2xl px-3 py-2 rounded ${darkMode ? 'bg-green-700 text-white' : 'bg-green-500 text-white'}`}
                     >
-                        แก้ไข
+                        เพิ่มสินค้า
                     </button>
-                    <button
-                        onClick={() => handleDeleteProduct(product.id)} 
-                        className="bg-red-500 text-white px-4 py-2 rounded"
-                    >
-                        ลบ
-                    </button>
-                </td>
-            </tr>
-        ))}
-    </tbody>
-</table>
-
-
-
-
-
-                        </div>
-        
-                        <div className="flex justify-between mt-4">
-                            <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
-                            >
-                                ก่อนหน้า
-                            </button>
-                            <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={filteredProducts.length < rowsPerPage}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-2xl"
-                            >
-                                ถัดไป
-                            </button>
-                        </div>
-                    </div>
                 </div>
+                <div className="w-1/4">
+                    <input
+                        type="text"
+                        className="text-2xl appearance-none border rounded py-2 px-4 leading-tight focus:outline-none"
+                        style={{
+                            backgroundColor: darkMode ? '#2c2c2e' : '#fff',
+                            color: darkMode ? '#fff' : '#000',
+                            borderColor: darkMode ? '#444' : '#d9d9d9',
+                        }}
+                        placeholder="ค้นหา..."
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            <span className="text-3xl">หน้า {currentPage}</span>
+            <table className="min-w-full table-auto text-center" style={{ backgroundColor: darkMode ? '#2c2c2e' : '#fff' }}>
+                <thead>
+                    <tr className="uppercase text-2xl leading-normal" style={{ backgroundColor: darkMode ? '#3a3a3c' : '#f8f9fa', color: darkMode ? '#fff' : '#000' }}>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('product_name')}>
+                            ชื่อสินค้า
+                            {sortConfigProducts.key === 'product_name' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left">หมวดหมู่</th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('product_code')}>
+                            รหัสสินค้า
+                            {sortConfigProducts.key === 'product_code' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('price')}>
+                            ราคา
+                            {sortConfigProducts.key === 'price' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('stock_quantity')}>
+                            จำนวน
+                            {sortConfigProducts.key === 'stock_quantity' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-left">รูปภาพ</th>
+                        <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSortProducts('created_at')}>
+                            สร้างเมื่อ
+                            {sortConfigProducts.key === 'created_at' && (sortConfigProducts.direction === 'ascending' ? ' ↑' : ' ↓')}
+                        </th>
+                        <th className="py-3 px-6 text-center"></th>
+                    </tr>
+                </thead>
+                <tbody className="text-2xl font-light" style={{ color: darkMode ? '#fff' : '#000' }}>
+                    {filteredProducts.map((product) => (
+                        <tr key={product.id} 
+                            className="border-b" 
+                            style={{ 
+                                backgroundColor: darkMode ? '#2c2c2e' : '#fff', 
+                                borderColor: darkMode ? '#444' : '#eaeaea',
+                                transition: 'background-color 0.3s ease',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#444' : '#f0f0f0'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#2c2c2e' : '#fff'}
+                        >
+                            <td className="py-3 px-6 text-left">{product.product_name}</td>
+                            <td className="py-3 px-6 text-left">
+    {manageCategories.find((category) => category.id === product.category_id)?.name || 'ไม่ทราบหมวดหมู่'}
+</td>
+
+
+                            <td className="py-3 px-6 text-left">{product.product_code}</td>
+                            <td className="py-3 px-6 text-left">{product.price}</td>
+                            <td className="py-3 px-6 text-left">{product.stock_quantity}</td>
+                            <td className="py-3 px-6 text-left">
+                                <img
+                                    src={product.img || '/default-image.png'}
+                                    alt="Product"
+                                    className="w-16 h-16 object-cover"
+                                />
+                            </td>
+                            <td className="py-3 px-6 text-left">
+                                {new Date(product.created_at).toLocaleString('th-TH', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </td>
+                            <td className="py-3 px-6 text-center">
+                            <div className="flex space-x-4 items-center">
+                            <Pencil 
+  size={50} 
+  onClick={() => handleEditProduct(product)}
+  className="text-blue-500 cursor-pointer p-2 rounded hover:text-white transition-colors hover:scale-110 transition-transform"
+/>
+
+<Eraser
+  size={50}
+  onClick={() => handleDeleteProduct(product.id)}
+  className="text-red-500 cursor-pointer p-2 rounded hover:text-white transition-colors hover:scale-110 transition-transform"
+/>
+</div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+
+        <div className="flex justify-between mt-4">
+            <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`bg-gray-300 text-gray-700 text-2xl px-4 py-2 rounded ${darkMode ? 'text-white' : 'text-gray-700'}`}
+                style={{ backgroundColor: darkMode ? '#3a3a3c' : '#eaeaea' }}
+            >
+                ก่อนหน้า
+            </button>
+            <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={filteredProducts.length < rowsPerPage}
+                className={`bg-gray-300 text-gray-700 text-2xl px-4 py-2 rounded ${darkMode ? 'text-white' : 'text-gray-700'}`}
+                style={{ backgroundColor: darkMode ? '#3a3a3c' : '#eaeaea' }}
+            >
+                ถัดไป
+            </button>
+        </div>
+    </div>
+</div>
+
             );
         }
     };
@@ -1640,121 +1896,141 @@ useEffect(() => {
 
     return (
         <>
-            <Head>
-                <meta charSet="utf-8" />
-                <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-                <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-                <meta name="description" content="" />
-                <meta name="author" content="" />
-
-                <title>POS Dashboard</title>
-
-                {/* Custom fonts and styles */}
-                <link href="/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
-                <link
-                    href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
-                    rel="stylesheet"
-                />
-                <link href="/css/sb-admin-2.min.css" rel="stylesheet" />
-            </Head>
 
             {/* Page Wrapper */}
             <div id="wrapper" className={isSidebarOpen ? "" : "toggled"}>
-                {/* Sidebar */}
-                <ul className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${isSidebarOpen ? "" : "toggled"}`} id="accordionSidebar">
-                    {/* Sidebar - Brand */}
-                    <Link href="#" className="sidebar-brand d-flex align-items-center justify-content-center">
-                        <div className="sidebar-brand-icon rotate-n-15">
-                            <i className="fas fa-laugh-wink"></i>
-                        </div>
-                        <h3 className="sidebar-brand-text mx-3 font-thai">POS Dashboard</h3>
-                    </Link>
+    {/* Sidebar */}
+    <ul className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${isSidebarOpen ? "" : "toggled"}`} id="accordionSidebar">
+        {/* Sidebar - Brand */}
+        <Link href="#" className="sidebar-brand d-flex align-items-center justify-content-center">
+            <div className="sidebar-brand-icon rotate-n-15">
+                <i className="fas fa-laugh-wink"></i>
+            </div>
+            {isSidebarOpen && <h3 className="sidebar-brand-text mx-3 font-thai">EZyPOS Dashboard</h3>}
+        </Link>
 
-                    {/* Divider */}
-                    <hr className="sidebar-divider my-0" />
+        {/* Divider */}
+        <hr className="sidebar-divider my-0" />
 
-                    {/* Nav Item - Dashboard */}
-                    <li className="nav-item font-thai">
-                        <a className="nav-link" href="#" onClick={() => setActivePageWithStorage('dashboard')}>
-                            <i className="fas fa-fw fa-tachometer-alt"></i>
-                            <span style={{ fontSize: '22px', fontWeight: 'bold' }}>Dashboard</span>
-                        </a>
-                    </li>
-                    
-
-                    {/* Other sidebar items */}
-                    <hr className="sidebar-divider d-none d-md-block" />
-
-                    <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-                         เมนูเกี่ยวกับสินค้า
-                    </div>
-
-                    <li className="nav-item font-thai">
-            {/* Manage Category */}
- <a className="nav-link" style={{ display: 'flex', alignItems: 'center', paddingLeft: '25px' }} href="#" onClick={() => setActivePageWithStorage('manageCategories')}>
-                            <Folder style={{ marginRight: '10px' }} />
-                            <span style={{ fontSize: '23px', fontWeight: 'normal' }}>จัดการหมวดหมู่</span>
-                        </a>
-
-            {/* Manage Products */}
-
-                <a className="nav-link" style={{ display: 'flex', alignItems: 'center', paddingLeft: '25px' }} href="#" onClick={() => setActivePageWithStorage('manageProducts')}
-            >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Blocks style={{marginRight: '10px' }} />
-                    <span style={{ fontSize: '23px', fontWeight: 'normal' }}>จัดการสินค้า</span>
-                </div>
-            </a>
-        </li>
-
-              <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-                         เมนูผู้ใช้งาน
-                    </div>
-                    <li className="nav-item font-thai">
-                    <a
-    className="nav-link"
-    href="#"
-    style={{ display: 'flex', alignItems: 'center', paddingLeft: '25px' }}  // Shift right with padding
-    onClick={handleLogout} // Trigger the logout function
->
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-        <LogOut style={{ marginRight: '10px' }} />
-        <span style={{ fontSize: '23px', fontWeight: 'normal' }}>ออกจากระบบ</span>
-    </div>
-</a>
-
-
-        </li>
-        {/* <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-                         เมนูผู้ใช้งาน
-                    </div>
-
-                    <li className="nav-item font-thai">
+        {/* Nav Item - Dashboard */}
+        <li className={`nav-item font-thai ${activePage === 'dashboard' ? 'active' : ''}`}>
             <a
                 className="nav-link"
                 href="#"
-                style={{ display: 'flex', alignItems: 'center', paddingLeft: '25px' }}  // Shift right with padding
+                onClick={goToPosPage}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
             >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <User2 style={{ marginRight: '10px' }} />
-                    <span style={{ fontSize: '23px', fontWeight: 'normal' }}>จัดการผู้ใช้งาน</span>
-                </div>
+                <LaptopMinimal style={{ marginLeft: isSidebarOpen ? '10px' : '0' }} />
+                {isSidebarOpen && <span style={{ fontSize: '25px', fontWeight: 'bold', marginLeft: '10px' }}>Open POS</span>}
             </a>
+        </li>
 
+        {/* Other sidebar items */}
+        <hr className="sidebar-divider d-none d-md-block" />
 
-        </li> */}
+        <li className={`nav-item font-thai ${activePage === 'dashboard' ? 'active' : ''}`}>
+            <a
+                className="nav-link"
+                href="#"
+                onClick={() => setActivePageWithStorage('dashboard')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+            >
+                <span style={{ fontSize: '24px', fontWeight: 'bold' ,marginLeft: '10px' }}>Dashboard</span>
+            </a>
+        </li>
 
+        <hr className="sidebar-divider my-0" />
 
-                </ul>
+        {/* Heading - Category */}
+        <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            เมนูเกี่ยวกับสินค้า
+        </div>
+
+        {/* Manage Category */}
+        <li className={`nav-item font-thai ${activePage === 'manageCategories' ? 'active' : ''}`}>
+            <a
+                className="nav-link"
+                href="#"
+                onClick={() => setActivePageWithStorage('manageCategories')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+            >
+                <Folder style={{ marginLeft: isSidebarOpen ? '10px' : '0' }} />
+                {isSidebarOpen && <span style={{ fontSize: '23px', fontWeight: 'normal', marginLeft: '10px'  }}>จัดการหมวดหมู่</span>}
+            </a>
+        </li>
+
+        {/* Manage Products */}
+        <li className={`nav-item font-thai ${activePage === 'manageProducts' ? 'active' : ''}`}>
+            <a
+                className="nav-link"
+                href="#"
+                onClick={() => setActivePageWithStorage('manageProducts')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+            >
+                <Blocks style={{ marginLeft: isSidebarOpen ? '10px' : '0' }} />
+                {isSidebarOpen && <span style={{ fontSize: '23px', fontWeight: 'normal', marginLeft: '10px'  }}>จัดการสินค้า</span>}
+            </a>
+        </li>
+        <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            เมนูเกี่ยวกับคำสั่งซื้อ
+        </div>
+        <li className={`nav-item font-thai ${activePage === 'manageProducts' ? 'active' : ''}`}>
+            <a
+                className="nav-link"
+                href="#"
+                onClick={() => setActivePageWithStorage('manageProducts')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+            >
+                <ClipboardList style={{ marginLeft: isSidebarOpen ? '10px' : '0' }} />
+                {isSidebarOpen && <span style={{ fontSize: '23px', fontWeight: 'normal', marginLeft: '10px'  }}>รายการคำสั่งซื้อ</span>}
+            </a>
+        </li>
+        {/* Heading - User Menu */}
+        <div className="sidebar-heading font-thai" style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            เมนูผู้ใช้งาน
+        </div>
+
+        {/* Logout */}
+        <li className="nav-item font-thai">
+            <a
+                className="nav-link"
+                href="#"
+                onClick={handleLogout}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+            >
+                <LogOut style={{ marginLeft: isSidebarOpen ? '10px' : '0' }} />
+                {isSidebarOpen && <span style={{ fontSize: '23px', fontWeight: 'normal', marginLeft: '10px' }}>ออกจากระบบ</span>}
+            </a>
+        </li>
+    </ul>
                 {/* End of Sidebar */}
 
                 {/* Content Wrapper */}
-                <div id="content-wrapper" className="d-flex flex-column">
-                    {/* Main Content */}
-                    <div id="content">
-                        {/* Topbar */}
-                        <nav className="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow d-flex justify-content-between align-items-center">
-            <button 
+                <div
+  id="content-wrapper"
+  className="d-flex flex-column"
+  style={{
+    backgroundColor: darkMode ? '#1F2937' : '#F9FAFB', // Dark background for darkMode, light for lightMode
+    color: darkMode ? '#FFFFFF' : '#1F2937', // White text for darkMode, dark text for lightMode
+}}
+>
+  {/* Main Content */}
+  <div
+    id="content"
+    style={{
+        backgroundColor: darkMode ? '#1F2937' : '#F9FAFB', // Dark background for darkMode, light for lightMode
+        color: darkMode ? '#FFFFFF' : '#1F2937', // White text for darkMode, dark text for lightMode
+    }}
+  >
+    {/* Topbar */}
+    <nav
+      className={`navbar navbar-expand topbar mb-4 static-top shadow d-flex justify-content-between align-items-center`}
+      style={{
+        backgroundColor: darkMode ? '#1F2937' : '#F9FAFB', // Dark background for darkMode, light for lightMode
+        color: darkMode ? '#FFFFFF' : '#1F2937', // White text for darkMode, dark text for lightMode
+    }}
+    >
+                        <button 
                 id="sidebarToggleTop" 
                 className="btn btn-link d-md-none rounded-circle mr-3" 
                 onClick={toggleSidebar}
@@ -1774,14 +2050,16 @@ useEffect(() => {
 
             {/* Centered Store ID */}
             {/* <h2 className="text-center text-3xl font-semibold mx-auto font-thai">รหัสร้านค้า : {userStoreId}</h2> */}
+            <div className="cursor-pointer" onClick={toggleTheme}>
+        <div className={`transition-transform duration-500 ${darkMode ? 'rotate-180' : 'rotate-0'}`}>
+            {darkMode ? (
+                <FaSun className="text-yellow-500 text-2xl transition-colors duration-500 animate-pulse-slow" />
+            ) : (
+                <FaMoon className="text-blue-800 text-2xl transition-colors duration-500 animate-pulse-slow" />
+            )}
+        </div>
+    </div>
 
-            {/* Button to go to POS page */}
-            <button 
-                className="btn btn-success ml-auto text-white px-4 py-2" 
-                onClick={goToPosPage}
-            >
-                POS
-            </button>
         </nav>
 
                         {/* End of Topbar */}
@@ -1789,9 +2067,17 @@ useEffect(() => {
                         {/* Begin Page Content */}
 
 
-                        <div className="container-fluid">
-                            {renderContent()}
-                        </div>
+                        <div
+    className="container-fluid"
+    style={{
+        backgroundColor: darkMode ? '#1F2937' : '#F9FAFB', // Dark background for darkMode, light for lightMode
+        color: darkMode ? '#FFFFFF' : '#1F2937', // White text for darkMode, dark text for lightMode
+    }}
+>
+    {renderContent()}
+</div>
+
+
                             
 
                         {/* /.container-fluid */}
@@ -1803,17 +2089,36 @@ useEffect(() => {
             </div>
             {/* End of Page Wrapper */}
 
-            {/* Scripts */}
-            <Script src="/vendor/jquery/jquery.min.js" strategy="beforeInteractive" />
-            <Script src="/vendor/jquery-easing/jquery.easing.min.js" strategy="beforeInteractive" />
-            <Script src="/vendor/bootstrap/js/bootstrap.bundle.min.js" strategy="beforeInteractive" />
-            <Script src="/js/sb-admin-2.min.js" strategy="beforeInteractive" />
-            <Script src="/vendor/chart.js/Chart.min.js" strategy="beforeInteractive" />
-            <Script src="https://code.jquery.com/jquery-3.6.0.min.js" strategy="beforeInteractive" />
-            <Script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js" strategy="beforeInteractive" />
-            <Script src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap5.min.js" strategy="beforeInteractive" />
-            <Script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" strategy="beforeInteractive" />
+ {/* Load jQuery first */}
+ <Script
+        src="https://code.jquery.com/jquery-3.6.0.min.js"
+        strategy="beforeInteractive"
+        onLoad={() => {
+          window.$ = window.jQuery = require('jquery');
+        }}
+        onError={(e) => console.error('Error loading jQuery:', e)}
+      />
+
+      {/* Load Bootstrap after jQuery */}
+      <Script
+        src="/vendor/bootstrap/js/bootstrap.bundle.min.js"
+        strategy="beforeInteractive"
+        onError={(e) => console.error('Error loading Bootstrap:', e)}
+      />
+
+      {/* Load DataTables after jQuery */}
+      <Script
+        src="/vendor/datatables/jquery.dataTables.min.js"
+        strategy="beforeInteractive"
+        onError={(e) => console.error('Error loading DataTables:', e)}
+      />
+      <Script
+        src="/vendor/datatables/dataTables.bootstrap4.min.js"
+        strategy="beforeInteractive"
+        onError={(e) => console.error('Error loading DataTables Bootstrap:', e)}
+      />
 
         </>
     );
 }
+export default dynamic(() => Promise.resolve(Dashboard), { ssr: false });

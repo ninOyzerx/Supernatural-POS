@@ -312,6 +312,7 @@ const Dashboard = () => {
                         confirmButtonText: 'ตกลง',
                     }).then(() => {
                         router.push('/session/sign-in');
+                        window.location.reload();
                     });
                 }
             } catch (error) {
@@ -325,6 +326,7 @@ const Dashboard = () => {
                     confirmButtonText: 'ตกลง',
                 }).then(() => {
                     router.push('/session/sign-in');
+                    window.location.reload();
                 });
             }
         }
